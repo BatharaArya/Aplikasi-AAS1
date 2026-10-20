@@ -188,7 +188,7 @@ with tab2:
                                          marker=dict(size=30, color='blue', symbol='square')))
 
             # Garis Sinar Sisa (Tergantung absorban)
-             opacity_sinar = max(0.1, 1.0 - (konsentrasi_sim / 12.0))
+             opacity_sinar =max(0.1,1.0-(konsentrasi_sim/12.0))
              fig_sim.add_shape(type="line", x0=0, y0=2, x1=5, y1=2,
                               line=dict(color="gold", width=8))
              fig_sim.add_shape(type="line", x0=5, y0=2, x1=10, y1=2,
