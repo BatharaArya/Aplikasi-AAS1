@@ -4,10 +4,10 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 # Ganti nama file ini kalau nanti kamu mengunggah versi HTML yang baru.
-HTML_FILE = "UV-1700_Virtual_Lab_v29_animasi_kuvet.html"
+HTML_FILE = "PROJEK ELPIA ASLI.html"
 
 st.set_page_config(
-    page_title="UV-1700 Virtual Laboratory",
+    page_title="AAS AA-7000 Virtual Laboratory",
     page_icon="🧪",
     layout="wide",
     initial_sidebar_state="collapsed",
