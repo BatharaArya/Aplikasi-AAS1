@@ -4,7 +4,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 # Ganti nama file ini kalau nanti kamu mengunggah versi HTML yang baru.
-HTML_FILE = "PROJEK ELPIA ASLI.html"
+HTML_FILE = "AAS.html"
 
 st.set_page_config(
     page_title="AAS AA-7000 Virtual Laboratory",
