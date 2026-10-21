@@ -1,0 +1,1267 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AAS Shimadzu AA-7000 Virtual Lab | Advanced</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Three.js untuk 3D -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: { 50: '#f0f9ff', 100: '#e0f2fe', 500: '#0ea5e9', 600: '#0284c7', 900: '#0c4a6e' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; color: #1e293b; overflow-x: hidden; }
+        
+        /* Layout */
+        #app-container { display: flex; height: 100vh; width: 100vw; }
+        
+        /* Sidebar */
+        #sidebar { width: 280px; background: white; border-right: 1px solid #e2e8f0; display: flex; flex-direction: column; z-index: 50; transition: transform 0.3s ease; }
+        .nav-item { padding: 12px 20px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; gap: 12px; font-weight: 500; color: #64748b; border-left: 4px solid transparent; }
+        .nav-item:hover { background: #f1f5f9; color: #0f172a; }
+        .nav-item.active { background: #f0f9ff; color: #0ea5e9; border-left-color: #0ea5e9; font-weight: 600; }
+        
+        /* Main Content */
+        #main-content { flex: 1; overflow-y: auto; position: relative; }
+        .page { display: none; padding: 2rem 3rem; animation: fadeIn 0.4s ease; }
+        .page.active { display: block; }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* Cards & UI Elements */
+        .card { background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 24px; }
+        .card-header { font-size: 1.1rem; font-weight: 600; color: #0f172a; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; border-bottom: 2px solid #f1f5f9; padding-bottom: 12px;}
+        
+        /* Form & Tables */
+        .form-control { width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-family: monospace; font-size: 14px; transition: border 0.2s; }
+        .form-control:focus { outline: none; border-color: #0ea5e9; box-shadow: 0 0 0 3px rgba(14,165,233,0.1); }
+        
+        table { width: 100%; border-collapse: separate; border-spacing: 0; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
+        th, td { border-bottom: 1px solid #e2e8f0; padding: 12px; text-align: center; }
+        th { background: #f8fafc; color: #475569; font-weight: 600; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; }
+        tr:last-child td { border-bottom: none; }
+        td input { text-align: center; border: 1px solid transparent; background: transparent; width: 100%; padding: 8px; font-family: monospace; }
+        td input:hover, td input:focus { border: 1px solid #cbd5e1; background: white; border-radius: 4px; }
+        
+        /* Alerts */
+        .alert { padding: 16px; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 12px; align-items: flex-start; }
+        .alert-info { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e3a8a; }
+        .alert-success { background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; }
+        .alert-warning { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
+        
+        /* 3D Container */
+        #webgl-wrapper { height: 640px; }
+        #webgl-wrapper canvas { display:block; }
+        .t3b { padding:7px 12px; border:1px solid #cbd5e1; border-radius:8px; background:#fff; font-size:13px; font-weight:600; color:#334155; transition:.15s; }
+        .t3b:hover { background:#f1f5f9; }
+        .t3b.t3on { background:#0ea5e9; color:#fff; border-color:#0ea5e9; }
+        .t3i { display:block; width:100%; text-align:left; padding:6px 10px; border-radius:6px; font-size:13px; color:#334155; }
+        .t3i:hover { background:#f0f9ff; } .t3i.on { background:#e0f2fe; color:#0369a1; font-weight:600; }
+        #t3-hud { position:absolute; left:12px; top:12px; z-index:5; background:rgba(15,23,42,.8); border:1px solid #334155; border-radius:8px; padding:8px 12px; pointer-events:none; }
+        #t3-tip { position:absolute; display:none; pointer-events:none; z-index:6; background:rgba(15,23,42,.92); color:#fff; font-size:12px; padding:4px 8px; border-radius:6px; }
+        #t3-lbls { position:absolute; inset:0; pointer-events:none; overflow:hidden; z-index:4; }
+        .t3l { position:absolute; transform:translate(-50%,-100%); font-size:11px; background:rgba(14,165,233,.92); color:#fff; padding:2px 6px; border-radius:4px; pointer-events:auto; cursor:pointer; white-space:nowrap; }
+
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        /* Tabs */
+        .tab-btn { padding: 10px 20px; font-weight: 600; color: #64748b; border-bottom: 2px solid transparent; transition: 0.2s; }
+        .tab-btn.active { color: #0ea5e9; border-bottom-color: #0ea5e9; }
+        .tab-content { display: none; padding-top: 20px; }
+        .tab-content.active { display: block; animation: fadeIn 0.3s; }
+
+        @media (max-width: 768px) {
+            #sidebar { position: absolute; transform: translateX(-100%); }
+            #sidebar.open { transform: translateX(0); }
+            .page { padding: 1.5rem 1rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="app-container">
+    
+    <!-- SIDEBAR -->
+    <nav id="sidebar">
+        <div class="p-6 border-b border-slate-200 flex items-center justify-center">
+            <div class="text-center">
+                <div class="text-2xl font-black text-brand-600 tracking-tight">AA-7000</div>
+                <div class="text-xs font-bold text-slate-400 tracking-widest uppercase">Virtual Lab</div>
+            </div>
+        </div>
+        
+        <div class="py-4 flex-1 overflow-y-auto">
+            <div class="px-5 mb-2 text-xs font-bold text-slate-400 uppercase tracking-wider">Modul Pembelajaran</div>
+            <div class="nav-item active" onclick="navigate('page-home', this)">
+                <i class="fa-solid fa-house w-5 text-center"></i> Beranda Utama
+            </div>
+            <div class="nav-item" onclick="navigate('page-theory', this)">
+                <i class="fa-solid fa-book-open w-5 text-center"></i> Teori & Hukum Beer
+            </div>
+            <div class="nav-item" onclick="navigate('page-3d', this)">
+                <i class="fa-solid fa-cube w-5 text-center"></i> Instrumen 3D
+            </div>
+            
+            <div class="px-5 mt-6 mb-2 text-xs font-bold text-slate-400 uppercase tracking-wider">Modul Analitik</div>
+            <div class="nav-item" onclick="navigate('page-prep', this)">
+                <i class="fa-solid fa-flask w-5 text-center"></i> Preparasi Larutan
+            </div>
+            <div class="nav-item" onclick="navigate('page-calibration', this)">
+                <i class="fa-solid fa-chart-line w-5 text-center"></i> Kurva Kalibrasi
+            </div>
+            <div class="nav-item" onclick="navigate('page-validation', this)">
+                <i class="fa-solid fa-vial-circle-check w-5 text-center"></i> Analisis & Validasi
+            </div>
+        </div>
+        
+        <div class="p-4 border-t border-slate-200 bg-slate-50">
+            <div class="text-xs text-slate-500 text-center">
+                Versi 3.0 (Advanced HTML)<br>
+                Fokus: Analisis Kimia Kuantitatif
+            </div>
+        </div>
+    </nav>
+
+    <!-- MAIN CONTENT -->
+    <main id="main-content">
+        
+        <!-- Navbar mobile toggle -->
+        <div class="md:hidden bg-white p-4 border-b border-slate-200 flex justify-between items-center sticky top-0 z-40">
+            <div class="font-bold text-brand-600">AA-7000 Lab</div>
+            <button onclick="document.getElementById('sidebar').classList.toggle('open')" class="text-slate-600">
+                <i class="fa-solid fa-bars text-xl"></i>
+            </button>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- PAGE: HOME -->
+        <!-- ========================================== -->
+        <div id="page-home" class="page active">
+            <div class="text-center mb-10">
+                <h1 class="text-4xl md:text-5xl font-black text-brand-600 mb-4 tracking-tight">VIRTUAL LAB AAS</h1>
+                <p class="text-lg text-slate-500 max-w-2xl mx-auto">Aplikasi Pembelajaran Inklusif & Interaktif Spektrofotometri Serapan Atom (Shimadzu AA-7000)</p>
+            </div>
+            
+            <div class="grid md:grid-cols-3 gap-6">
+                <div class="card md:col-span-2 border-t-4 border-t-brand-500">
+                    <div class="card-header"><i class="fa-solid fa-graduation-cap"></i> Selamat Datang!</div>
+                    <p class="text-slate-600 leading-relaxed mb-4 text-justify">
+                        Aplikasi berbasis web ini dirancang khusus untuk memfasilitasi pembelajaran <b>Spektrofotometri Serapan Atom (AAS)</b> secara mendalam, interaktif, dan terstruktur. Modul ini mensimulasikan instrumen nyata dengan pengolahan data analitik aktual.
+                    </p>
+                    <h4 class="font-bold text-slate-800 mt-6 mb-3">Fitur Unggulan Simulator Ini:</h4>
+                    <ul class="space-y-2 text-slate-600">
+                        <li class="flex items-start gap-2"><i class="fa-solid fa-check text-brand-500 mt-1"></i> <span><b>Visualisasi 3D Instrumen:</b> Jelajahi komponen optik dan proses atomisasi.</span></li>
+                        <li class="flex items-start gap-2"><i class="fa-solid fa-check text-brand-500 mt-1"></i> <span><b>Modul Preparasi:</b> Kalkulator pengenceran larutan standar & sampel.</span></li>
+                        <li class="flex items-start gap-2"><i class="fa-solid fa-check text-brand-500 mt-1"></i> <span><b>Kurva Kalibrasi Dinamis:</b> Perhitungan regresi linier, Limit of Detection (LoD), dan Limit of Quantitation (LoQ).</span></li>
+                        <li class="flex items-start gap-2"><i class="fa-solid fa-check text-brand-500 mt-1"></i> <span><b>Validasi Metode:</b> Analisis presisi (%RSD) dan akurasi (%Recovery).</span></li>
+                    </ul>
+                </div>
+                
+                <div class="space-y-6">
+                    <div class="alert alert-info flex-col">
+                        <div class="flex items-center gap-2 font-bold"><i class="fa-solid fa-lightbulb"></i> Tips Penggunaan</div>
+                        <p class="text-sm mt-1">Gunakan menu di sidebar kiri untuk berpindah modul. Disarankan mengikuti urutan dari Teori hingga Validasi.</p>
+                    </div>
+                    <div class="alert alert-warning flex-col">
+                        <div class="flex items-center gap-2 font-bold"><i class="fa-solid fa-triangle-exclamation"></i> Algoritma Nyata</div>
+                        <p class="text-sm mt-1">Data yang diinputkan pada menu Kalibrasi diproses menggunakan algoritma regresi nyata via JavaScript, persis seperti pengolahan data di laboratorium asli.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- PAGE: THEORY -->
+        <!-- ========================================== -->
+        <div id="page-theory" class="page">
+            <h2 class="text-3xl font-bold text-slate-800 mb-6">Teori & Hukum Beer-Lambert</h2>
+            
+            <div class="card bg-slate-50 border-l-4 border-l-brand-500">
+                <h3 class="font-bold text-lg text-slate-800 mb-2">Prinsip Dasar AAS</h3>
+                <p class="text-slate-600 leading-relaxed text-justify">
+                    Spektrofotometri Serapan Atom (AAS) adalah metode analisis kuantitatif yang didasarkan pada penyerapan energi cahaya oleh <b>atom-atom bebas pada keadaan dasar (ground state)</b>. Penyerapan ini sangat spesifik, di mana atom suatu unsur hanya menyerap cahaya pada panjang gelombang resonansinya sendiri (misal Cu pada 324.7 nm).
+                </p>
+            </div>
+            
+            <div class="grid md:grid-cols-3 gap-6">
+                <div class="card md:col-span-1">
+                    <div class="card-header"><i class="fa-solid fa-calculator"></i> Simulasi Interaktif</div>
+                    
+                    <div class="bg-slate-100 p-4 rounded-lg text-center mb-6 border border-slate-200">
+                        <div class="text-2xl font-serif italic font-bold text-slate-800">A = &epsilon; &middot; b &middot; C</div>
+                        <div class="text-xs text-slate-500 mt-2">A = Absorbansi | &epsilon; = Absorptivitas | b = Lebar nyala | C = Konsentrasi</div>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Absorptivitas Molar (&epsilon;)</label>
+                            <input type="range" id="sl-eps" min="100" max="1000" value="500" step="50" class="w-full accent-brand-500" oninput="updateBeer()">
+                            <div class="text-right text-xs text-slate-500" id="val-eps">500 L/(mol.cm)</div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Lebar Lintasan / Celah Api (b)</label>
+                            <input type="range" id="sl-b" min="1" max="10" value="5" step="0.5" class="w-full accent-brand-500" oninput="updateBeer()">
+                            <div class="text-right text-xs text-slate-500" id="val-b">5.0 cm</div>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Konsentrasi Target (C) x 10⁻⁴</label>
+                            <input type="range" id="sl-c" min="0" max="10" value="2" step="0.1" class="w-full accent-brand-500" oninput="updateBeer()">
+                            <div class="text-right text-xs text-slate-500" id="val-c">2.0 M</div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-6 p-4 bg-brand-50 rounded-lg border border-brand-200 text-center">
+                        <div class="text-sm font-bold text-brand-800 uppercase tracking-wider mb-1">Nilai Absorbansi (A)</div>
+                        <div class="text-4xl font-black text-brand-600 font-mono" id="val-a">0.500</div>
+                    </div>
+                </div>
+                
+                <div class="card md:col-span-2">
+                    <div class="card-header"><i class="fa-solid fa-chart-area"></i> Grafik Hubungan Linier</div>
+                    <div style="height: 350px; width: 100%;">
+                        <canvas id="beerChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- PAGE: 3D INSTRUMENT -->
+        <!-- ========================================== -->
+        <div id="page-3d" class="page">
+    <div class="flex flex-wrap justify-between items-end gap-3 mb-4">
+        <div>
+            <h2 class="text-3xl font-bold text-slate-800">Eksplorasi Instrumen 3D</h2>
+            <p class="text-slate-500 text-sm mt-1">Model interaktif Shimadzu AA-7000 (Flame AAS). Klik komponen mana pun untuk melihat nama dan fungsinya.</p>
+        </div>
+        <div class="flex gap-2 flex-wrap">
+            <button class="t3b" onclick="t3Cam('front')">Depan</button>
+            <button class="t3b" onclick="t3Cam('top')">Atas</button>
+            <button class="t3b" onclick="t3Cam('side')">Samping</button>
+            <button class="t3b" onclick="t3Cam('optics')">Jalur Optik</button>
+            <button class="t3b" onclick="t3Cam('flame')">Nyala</button>
+        </div>
+    </div>
+    <div class="grid xl:grid-cols-3 gap-4">
+        <div class="xl:col-span-2">
+            <div id="webgl-wrapper" class="shadow-lg">
+                <div id="t3-hud">
+                    <div style="font-size:10px;letter-spacing:1px;color:#7dd3fc">ABSORBANSI (LIVE)</div>
+                    <div id="t3-hud-a" style="font:700 28px monospace;color:#fff">0.0000</div>
+                    <div id="t3-hud-s" style="font-size:11px;color:#94a3b8">Api mati</div>
+                </div>
+                <div id="t3-lbls"></div>
+                <div id="t3-tip"></div>
+            </div>
+            <div class="card mt-4" style="margin-bottom:0">
+                <div class="grid md:grid-cols-3 gap-4 mb-4">
+                    <label class="text-xs font-semibold text-slate-600">Transparansi casing
+                        <input type="range" id="t3-op" min="0" max="100" value="100" class="w-full accent-brand-500" oninput="t3Op(this.value)">
+                        <span id="t3-op-v" class="text-slate-400 font-normal">Opak 100%</span></label>
+                    <label class="text-xs font-semibold text-slate-600">Exploded view (bongkar)
+                        <input type="range" id="t3-ex" min="0" max="100" value="0" class="w-full accent-brand-500" oninput="t3Ex(this.value)">
+                        <span id="t3-ex-v" class="text-slate-400 font-normal">0%</span></label>
+                    <label class="text-xs font-semibold text-slate-600">Konsentrasi sampel (ppm)
+                        <input type="range" id="t3-c" min="0" max="10" step="0.1" value="5" class="w-full accent-brand-500" oninput="t3C(this.value)">
+                        <span id="t3-c-v" class="text-slate-400 font-normal">5.0 ppm &rarr; A mengikuti slope kalibrasi</span></label>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <button class="t3b" id="t3b-xray" onclick="t3Toggle('xray')">Mode Tembus Pandang</button>
+                    <button class="t3b" id="t3b-door" onclick="t3Toggle('door')">Buka Pintu</button>
+                    <button class="t3b" id="t3b-flame" onclick="t3Toggle('flame')">Nyalakan Api</button>
+                    <button class="t3b" id="t3b-asp" onclick="t3Toggle('asp')">Aspirasi Sampel</button>
+                    <button class="t3b" id="t3b-beam" onclick="t3Toggle('beam')">Berkas Cahaya</button>
+                    <button class="t3b" id="t3b-labels" onclick="t3Toggle('labels')">Label Komponen</button>
+                    <button class="t3b" onclick="t3Reset()">Reset</button>
+                </div>
+            </div>
+        </div>
+        <div>
+            <div class="card" style="padding:16px">
+                <div class="flex gap-2 mb-3">
+                    <button class="t3b t3on" id="t3tb0" onclick="t3Tab(0)">Komponen &amp; Fungsi</button>
+                    <button class="t3b" id="t3tb1" onclick="t3Tab(1)">Mekanisme</button>
+                </div>
+                <div id="t3-p0">
+                    <div id="t3-info" class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600 mb-2"></div>
+                    <div id="t3-list" style="max-height:330px;overflow:auto"></div>
+                </div>
+                <div id="t3-p1" style="display:none">
+                    <div id="t3-steps" class="flex gap-1 flex-wrap mb-3"></div>
+                    <div id="t3-stxt" class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600" style="min-height:170px"></div>
+                    <div class="flex gap-2 mt-3">
+                        <button class="t3b" onclick="t3Step(-1)">&larr; Sebelumnya</button>
+                        <button class="t3b" onclick="t3Step(1)">Berikutnya &rarr;</button>
+                        <button class="t3b" id="t3b-auto" onclick="t3Auto()">Putar Otomatis</button>
+                    </div>
+                </div>
+            </div>
+            <div class="alert alert-info text-sm"><i class="fa-solid fa-circle-info mt-1"></i><div>Drag = putar, scroll = zoom, klik kanan + drag = geser. Absorbansi live memakai slope &amp; intercept dari halaman Kalibrasi.</div></div>
+        </div>
+    </div>
+</div>
+
+
+        <!-- ========================================== -->
+        <!-- PAGE: PREPARATION -->
+        <!-- ========================================== -->
+        <div id="page-prep" class="page">
+            <h2 class="text-3xl font-bold text-slate-800 mb-6">Preparasi Larutan & Pengenceran</h2>
+            
+            <div class="grid md:grid-cols-2 gap-6">
+                <div class="card">
+                    <div class="card-header"><i class="fa-solid fa-flask"></i> Pengenceran Standar (M₁V₁ = M₂V₂)</div>
+                    <p class="text-sm text-slate-500 mb-4">Hitung volume larutan induk yang perlu dipipet untuk membuat deret standar.</p>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Konsentrasi Larutan Induk (M₁) [ppm]</label>
+                            <input type="number" id="prep-m1" value="100" class="form-control" oninput="calcPrep()">
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Kons. Target (M₂) [ppm]</label>
+                                <input type="number" id="prep-m2" value="5" class="form-control" oninput="calcPrep()">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-1">Vol. Labu Takar (V₂) [mL]</label>
+                                <input type="number" id="prep-v2" value="50" class="form-control" oninput="calcPrep()">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-6 p-4 bg-emerald-50 rounded-lg border border-emerald-200 flex justify-between items-center">
+                        <div class="text-sm font-bold text-emerald-800">Volume Dipipet (V₁):</div>
+                        <div class="text-2xl font-black text-emerald-600 font-mono" id="res-v1">2.50 mL</div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header"><i class="fa-solid fa-droplet"></i> Faktor Pengenceran (FP) Sampel</div>
+                    <p class="text-sm text-slate-500 mb-4">Hitung pengali (FP) jika sampel terlalu pekat dan harus diencerkan sebelum diukur AAS.</p>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Volume Pipet Sampel Awal [mL]</label>
+                            <input type="number" id="prep-vsamp" value="10" class="form-control" oninput="calcFP()">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Ditepatkan dalam Labu Takar [mL]</label>
+                            <input type="number" id="prep-vlabu" value="100" class="form-control" oninput="calcFP()">
+                        </div>
+                    </div>
+                    
+                    <div class="mt-6 p-4 bg-amber-50 rounded-lg border border-amber-200 flex justify-between items-center">
+                        <div class="text-sm font-bold text-amber-800">Faktor Pengenceran (FP):</div>
+                        <div class="text-2xl font-black text-amber-600 font-mono" id="res-fp">10.0 x</div>
+                    </div>
+                    <div class="text-xs text-slate-400 text-center mt-2">*Kalikan hasil pembacaan alat AAS dengan FP ini.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- PAGE: CALIBRATION -->
+        <!-- ========================================== -->
+        <div id="page-calibration" class="page">
+            <h2 class="text-3xl font-bold text-slate-800 mb-6">Kurva Kalibrasi Standar</h2>
+            
+            <div class="grid xl:grid-cols-5 gap-6">
+                <!-- Tabel Input -->
+                <div class="card xl:col-span-2">
+                    <div class="card-header flex justify-between items-center w-full">
+                        <span><i class="fa-solid fa-table"></i> Data Pengukuran</span>
+                        <button onclick="addRowCal()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 px-2 py-1 rounded"><i class="fa-solid fa-plus"></i> Baris</button>
+                    </div>
+                    
+                    <div class="overflow-x-auto">
+                        <table id="tbl-cal">
+                            <thead>
+                                <tr>
+                                    <th>Konsentrasi (X) ppm</th>
+                                    <th>Absorbansi (Y) A</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr><td><input type="number" class="val-x" value="0.0"></td><td><input type="number" class="val-y" value="0.000" step="0.001"></td></tr>
+                                <tr><td><input type="number" class="val-x" value="1.0"></td><td><input type="number" class="val-y" value="0.125" step="0.001"></td></tr>
+                                <tr><td><input type="number" class="val-x" value="2.0"></td><td><input type="number" class="val-y" value="0.252" step="0.001"></td></tr>
+                                <tr><td><input type="number" class="val-x" value="3.0"></td><td><input type="number" class="val-y" value="0.370" step="0.001"></td></tr>
+                                <tr><td><input type="number" class="val-x" value="4.0"></td><td><input type="number" class="val-y" value="0.495" step="0.001"></td></tr>
+                                <tr><td><input type="number" class="val-x" value="5.0"></td><td><input type="number" class="val-y" value="0.615" step="0.001"></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <button class="w-full bg-brand-500 hover:bg-brand-600 text-white font-bold py-3 px-4 rounded-lg mt-4 shadow-md transition" onclick="calcRegression()">
+                        <i class="fa-solid fa-calculator mr-2"></i> Hitung Regresi & Validasi
+                    </button>
+                </div>
+                
+                <!-- Hasil & Grafik -->
+                <div class="xl:col-span-3 space-y-6">
+                    <div class="card">
+                        <div class="card-header"><i class="fa-solid fa-chart-line"></i> Grafik Kalibrasi</div>
+                        <div style="height: 300px; width: 100%;">
+                            <canvas id="calChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div class="bg-slate-800 text-white p-5 rounded-xl shadow-inner relative overflow-hidden">
+                            <div class="absolute top-0 right-0 p-4 opacity-10"><i class="fa-solid fa-square-root-variable text-6xl"></i></div>
+                            <h4 class="text-slate-400 text-sm font-bold uppercase tracking-wider mb-2">Persamaan Regresi</h4>
+                            <div class="text-2xl font-mono font-bold text-brand-300 mb-4" id="res-eq">Y = 0.0000X + 0.0000</div>
+                            <div class="grid grid-cols-2 gap-2 text-sm">
+                                <div><span class="text-slate-400">Slope (b):</span> <span id="res-slope" class="font-mono">0.0000</span></div>
+                                <div><span class="text-slate-400">Intercept (a):</span> <span id="res-int" class="font-mono">0.0000</span></div>
+                                <div class="col-span-2 mt-1 pt-2 border-t border-slate-700"><span class="text-slate-400">R&sup2; (Linearitas):</span> <span id="res-r2" class="font-mono text-emerald-400 font-bold">0.0000</span></div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white border border-slate-200 p-5 rounded-xl shadow-sm">
+                            <h4 class="text-slate-500 text-sm font-bold uppercase tracking-wider mb-2 border-b border-slate-100 pb-2">Batas Deteksi Instrumen</h4>
+                            <div class="space-y-4 mt-4">
+                                <div class="flex justify-between items-center">
+                                    <div class="text-sm font-semibold text-slate-700" title="Limit of Detection">LoD (Batas Deteksi):</div>
+                                    <div class="text-lg font-mono font-bold text-amber-600" id="res-lod">0.000 ppm</div>
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <div class="text-sm font-semibold text-slate-700" title="Limit of Quantitation">LoQ (Batas Kuantitasi):</div>
+                                    <div class="text-lg font-mono font-bold text-emerald-600" id="res-loq">0.000 ppm</div>
+                                </div>
+                            </div>
+                            <div class="text-xs text-slate-400 mt-4 leading-tight italic">*Dihitung menggunakan metode statistik (Sy/x).</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- PAGE: VALIDATION & SAMPLE -->
+        <!-- ========================================== -->
+        <div id="page-validation" class="page">
+            <h2 class="text-3xl font-bold text-slate-800 mb-2">Analisis & Validasi Metode</h2>
+            <p class="text-slate-500 mb-6">Menggunakan persamaan regresi yang didapat dari halaman Kurva Kalibrasi.</p>
+            
+            <div id="val-warning" class="alert alert-warning">
+                <i class="fa-solid fa-triangle-exclamation text-xl"></i>
+                <div><b>Perhatian:</b> Anda belum melakukan perhitungan regresi di menu Kurva Kalibrasi. Data di bawah ini menggunakan persamaan default.</div>
+            </div>
+            
+            <!-- Tabs Navigation -->
+            <div class="flex border-b border-slate-200 mb-6">
+                <button class="tab-btn active" onclick="switchValTab('tab-sampel', this)"><i class="fa-solid fa-flask text-brand-500 mr-2"></i> Kadar Sampel</button>
+                <button class="tab-btn" onclick="switchValTab('tab-presisi', this)"><i class="fa-solid fa-bullseye text-amber-500 mr-2"></i> Uji Presisi (%RSD)</button>
+                <button class="tab-btn" onclick="switchValTab('tab-akurasi', this)"><i class="fa-solid fa-check-double text-emerald-500 mr-2"></i> Uji Akurasi (%Rec)</button>
+            </div>
+            
+            <!-- Tab 1: Sampel Tunggal -->
+            <div id="tab-sampel" class="tab-content active">
+                <div class="card max-w-2xl mx-auto">
+                    <div class="text-center mb-6">
+                        <div class="text-sm text-slate-500 uppercase tracking-wider font-bold mb-1">Rumus Perhitungan</div>
+                        <div class="text-xl font-mono text-brand-600 bg-brand-50 py-2 rounded border border-brand-100" id="val-eq-display">X = (Y - a) / b</div>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4 mb-6">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Absorbansi Alat (Y)</label>
+                            <input type="number" id="vsamp-y" value="0.350" step="0.001" class="form-control text-lg" oninput="calcSample()">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Faktor Pengenceran (FP)</label>
+                            <input type="number" id="vsamp-fp" value="1.0" class="form-control text-lg" oninput="calcSample()">
+                        </div>
+                    </div>
+                    
+                    <div class="bg-emerald-50 border-2 border-emerald-200 rounded-xl p-6 text-center shadow-inner">
+                        <div class="text-sm font-bold text-emerald-800 uppercase tracking-widest mb-2">Konsentrasi Akhir Sampel</div>
+                        <div class="text-5xl font-black text-emerald-600 font-mono" id="vsamp-res">0.000 ppm</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Tab 2: Presisi -->
+            <div id="tab-presisi" class="tab-content">
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div class="card">
+                        <div class="card-header"><i class="fa-solid fa-table-list"></i> Data Replikasi Absorbansi</div>
+                        <p class="text-sm text-slate-500 mb-4">Masukkan data pengukuran ulangan (minimal 3) untuk melihat tingkat presisi (keterulangan) alat.</p>
+                        
+                        <table id="tbl-pres">
+                            <thead><tr><th>Ulangan ke-</th><th>Absorbansi (A)</th></tr></thead>
+                            <tbody>
+                                <tr><td>1</td><td><input type="number" class="val-p" value="0.350" step="0.001"></td></tr>
+                                <tr><td>2</td><td><input type="number" class="val-p" value="0.352" step="0.001"></td></tr>
+                                <tr><td>3</td><td><input type="number" class="val-p" value="0.348" step="0.001"></td></tr>
+                                <tr><td>4</td><td><input type="number" class="val-p" value="0.351" step="0.001"></td></tr>
+                                <tr><td>5</td><td><input type="number" class="val-p" value="0.349" step="0.001"></td></tr>
+                                <tr><td>6</td><td><input type="number" class="val-p" value="0.350" step="0.001"></td></tr>
+                                <tr><td>7</td><td><input type="number" class="val-p" value="0.353" step="0.001"></td></tr>
+                            </tbody>
+                        </table>
+                        <button class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 px-4 rounded mt-4 transition" onclick="calcPrecision()">Hitung Presisi</button>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <div class="card h-full flex flex-col justify-center">
+                            <div class="space-y-4">
+                                <div class="flex justify-between items-end border-b border-slate-100 pb-2">
+                                    <div class="text-sm font-semibold text-slate-600">Rata-rata Absorbansi (Mean):</div>
+                                    <div class="text-xl font-mono text-slate-800" id="vres-mean">0.000</div>
+                                </div>
+                                <div class="flex justify-between items-end border-b border-slate-100 pb-2">
+                                    <div class="text-sm font-semibold text-slate-600">Standar Deviasi (SD):</div>
+                                    <div class="text-xl font-mono text-slate-800" id="vres-sd">0.00000</div>
+                                </div>
+                                <div class="mt-6 p-4 bg-slate-800 rounded-lg text-center">
+                                    <div class="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Relative Standard Deviation</div>
+                                    <div class="text-4xl font-black text-amber-400 font-mono" id="vres-rsd">0.00 %</div>
+                                </div>
+                                <div id="vres-rsd-msg" class="text-center text-sm font-medium mt-2"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Tab 3: Akurasi -->
+            <div id="tab-akurasi" class="tab-content">
+                <div class="card max-w-3xl mx-auto border-t-4 border-t-emerald-500">
+                    <div class="card-header"><i class="fa-solid fa-recycle"></i> Uji Temu Balik (Metode Spike / Penambahan Standar)</div>
+                    <p class="text-sm text-slate-600 mb-6 text-justify">
+                        Digunakan untuk mengecek akurasi metode dengan menambahkan larutan standar baku ke dalam matriks sampel. Persentase bahan baku yang "ditemukan kembali" oleh alat menunjukkan tingkat akurasi.
+                    </p>
+                    
+                    <div class="grid md:grid-cols-3 gap-4 mb-6">
+                        <div class="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-2">1. Sampel Asli (C₀)</label>
+                            <input type="number" id="vrec-c0" value="2.0" class="form-control" oninput="calcRecovery()">
+                            <div class="text-xs text-slate-400 mt-1">Konsentrasi sampel sebelum spike</div>
+                        </div>
+                        <div class="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                            <label class="block text-xs font-bold text-brand-500 uppercase mb-2">2. Standar Add (C_add)</label>
+                            <input type="number" id="vrec-cadd" value="3.0" class="form-control" oninput="calcRecovery()">
+                            <div class="text-xs text-slate-400 mt-1">Jumlah standar murni yg ditambahkan</div>
+                        </div>
+                        <div class="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                            <label class="block text-xs font-bold text-emerald-500 uppercase mb-2">3. Sampel Spike (C₁)</label>
+                            <input type="number" id="vrec-c1" value="4.9" class="form-control" oninput="calcRecovery()">
+                            <div class="text-xs text-slate-400 mt-1">Konsentrasi terbaca setelah spike</div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex flex-col md:flex-row items-center gap-6">
+                        <div class="flex-1 text-center bg-emerald-50 p-6 rounded-xl border-2 border-emerald-200 w-full">
+                            <div class="text-sm font-bold text-emerald-800 uppercase tracking-widest mb-2">Persentase Recovery</div>
+                            <div class="text-5xl font-black text-emerald-600 font-mono" id="vrec-res">0.0 %</div>
+                        </div>
+                        <div class="flex-1 w-full">
+                            <div class="bg-slate-800 text-white p-4 rounded-lg">
+                                <div class="font-mono text-sm mb-2 text-brand-300">Rumus:</div>
+                                <div class="font-mono text-center text-lg bg-slate-900 py-2 rounded mb-3 border border-slate-700">
+                                    %Rec = <frac>(C₁ - C₀) / C_add</frac> × 100%
+                                </div>
+                                <div id="vrec-msg" class="text-sm text-center"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+</div>
+
+<!-- ========================================== -->
+<!-- SCRIPT LOGIC -->
+<!-- ========================================== -->
+<script>
+    // --- Navigation Logic ---
+    function navigate(pageId, navItem) {
+        document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
+        document.getElementById(pageId).classList.add('active');
+        
+        document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+        navItem.classList.add('active');
+        
+        if(window.innerWidth <= 768) {
+            document.getElementById('sidebar').classList.remove('open');
+        }
+
+        // Initialize 3D if navigating to 3D page for the first time
+        if(pageId === 'page-3d' && !is3DInit) {
+            init3D();
+            is3DInit = true;
+        }
+    }
+
+    function switchValTab(tabId, btn) {
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+        
+        document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+        btn.classList.add('active');
+    }
+
+
+    // --- Global Variables for Analytics ---
+    let G_SLOPE = 0.1235;
+    let G_INT = 0.0005;
+    let G_R2 = 0;
+    let beerChart = null;
+    let calChart = null;
+
+    // --- 1. Theory: Beer-Lambert Logic ---
+    function updateBeer() {
+        const eps = parseFloat(document.getElementById('sl-eps').value);
+        const b = parseFloat(document.getElementById('sl-b').value);
+        const c_input = parseFloat(document.getElementById('sl-c').value);
+        const c_actual = c_input / 10000; // x 10^-4
+        
+        document.getElementById('val-eps').innerText = eps + " L/(mol.cm)";
+        document.getElementById('val-b').innerText = b.toFixed(1) + " cm";
+        document.getElementById('val-c').innerText = c_input.toFixed(1) + " M";
+        
+        const A = eps * b * c_actual;
+        document.getElementById('val-a').innerText = A.toFixed(3);
+
+        // Update Chart
+        if(!beerChart) {
+            const ctx = document.getElementById('beerChart').getContext('2d');
+            beerChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [0, 2, 4, 6, 8, 10],
+                    datasets: [{
+                        label: 'Linearitas Teoretis',
+                        data: [0, 0, 0, 0, 0, 0], // init
+                        borderColor: '#0ea5e9', borderWidth: 3, tension: 0.1, fill: true,
+                        backgroundColor: 'rgba(14, 165, 233, 0.1)'
+                    },
+                    {
+                        type: 'scatter', label: 'Titik Saat Ini', data: [{x:0, y:0}],
+                        backgroundColor: '#ef4444', radius: 8, borderColor: 'white', borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    scales: { x: { title: {display:true, text:'Konsentrasi (x 10⁻⁴ M)'} }, y: { title: {display:true, text:'Absorbansi (A)'}, min: 0 } },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+        
+        // Calculate curve data
+        const curveData = [0, 2, 4, 6, 8, 10].map(x => eps * b * (x/10000));
+        beerChart.data.datasets[0].data = curveData;
+        beerChart.data.datasets[1].data = [{x: c_input, y: A}];
+        // Adjust Y axis max dynamically
+        beerChart.options.scales.y.max = Math.max(1.0, eps * b * (10/10000) * 1.1);
+        beerChart.update();
+    }
+    setTimeout(updateBeer, 100); // Init
+
+
+    // --- 2. Preparation Logic ---
+    function calcPrep() {
+        const m1 = parseFloat(document.getElementById('prep-m1').value) || 0;
+        const m2 = parseFloat(document.getElementById('prep-m2').value) || 0;
+        const v2 = parseFloat(document.getElementById('prep-v2').value) || 0;
+        if(m1 > 0) {
+            const v1 = (m2 * v2) / m1;
+            document.getElementById('res-v1').innerText = v1.toFixed(2) + " mL";
+        }
+    }
+    function calcFP() {
+        const vs = parseFloat(document.getElementById('prep-vsamp').value) || 0;
+        const vl = parseFloat(document.getElementById('prep-vlabu').value) || 0;
+        if(vs > 0) {
+            const fp = vl / vs;
+            document.getElementById('res-fp').innerText = fp.toFixed(2) + " x";
+            document.getElementById('vsamp-fp').value = fp.toFixed(2); // Auto fill to sample validation
+            calcSample();
+        }
+    }
+
+
+    // --- 3. Calibration Curve Logic (Regression) ---
+    function addRowCal() {
+        const tbody = document.querySelector("#tbl-cal tbody");
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td><input type="number" class="val-x" value="0.0"></td><td><input type="number" class="val-y" value="0.000" step="0.001"></td>`;
+        tbody.appendChild(tr);
+    }
+
+    function calcRegression() {
+        const inputsX = document.querySelectorAll('.val-x');
+        const inputsY = document.querySelectorAll('.val-y');
+        let x = [], y = [];
+        
+        for(let i=0; i<inputsX.length; i++) {
+            let vx = parseFloat(inputsX[i].value);
+            let vy = parseFloat(inputsY[i].value);
+            if(!isNaN(vx) && !isNaN(vy)) { x.push(vx); y.push(vy); }
+        }
+
+        if(x.length < 3) { alert("Minimal butuh 3 titik data (termasuk blanko)!"); return; }
+
+        let n = x.length;
+        let sumX=0, sumY=0, sumXY=0, sumX2=0;
+        for(let i=0; i<n; i++) { sumX+=x[i]; sumY+=y[i]; sumXY+=(x[i]*y[i]); sumX2+=(x[i]*x[i]); }
+        
+        let slope = ((n*sumXY) - (sumX*sumY)) / ((n*sumX2) - (sumX*sumX));
+        let intcpt = (sumY - (slope*sumX)) / n;
+
+        let meanY = sumY/n;
+        let ssTot=0, ssRes=0;
+        let y_pred = [];
+        for(let i=0; i<n; i++) {
+            let yp = slope*x[i] + intcpt;
+            y_pred.push(yp);
+            ssTot += Math.pow(y[i] - meanY, 2);
+            ssRes += Math.pow(y[i] - yp, 2);
+        }
+        let r2 = 1 - (ssRes/ssTot);
+        
+        // LoD & LoQ (Sy/x method)
+        let syx = Math.sqrt(ssRes / (n-2));
+        let lod = (3.3 * syx) / slope;
+        let loq = (10 * syx) / slope;
+
+        // Update Globals & UI
+        G_SLOPE = slope; G_INT = intcpt; G_R2 = r2;
+        document.getElementById('val-warning').style.display = 'none'; // Hide warning in Validation tab
+        
+        document.getElementById('res-slope').innerText = slope.toFixed(4);
+        document.getElementById('res-int').innerText = intcpt.toFixed(4);
+        document.getElementById('res-r2').innerText = r2.toFixed(5);
+        document.getElementById('res-eq').innerText = `Y = ${slope.toFixed(4)}X ${intcpt>=0?'+':'-'} ${Math.abs(intcpt).toFixed(4)}`;
+        document.getElementById('val-eq-display').innerText = `X = (Y ${intcpt>=0?'-':'+'} ${Math.abs(intcpt).toFixed(4)}) / ${slope.toFixed(4)}`;
+        
+        document.getElementById('res-lod').innerText = isNaN(lod) || lod<0 ? "N/A" : lod.toFixed(4) + " ppm";
+        document.getElementById('res-loq').innerText = isNaN(loq) || loq<0 ? "N/A" : loq.toFixed(4) + " ppm";
+
+        // Draw Chart
+        if(calChart) calChart.destroy();
+        const ctx = document.getElementById('calChart').getContext('2d');
+        calChart = new Chart(ctx, {
+            type: 'scatter',
+            data: {
+                datasets: [{
+                    label: 'Data Standar', data: x.map((v,i)=>({x:v, y:y[i]})),
+                    backgroundColor: '#0ea5e9', pointRadius: 6, pointHoverRadius: 8
+                }, {
+                    type: 'line', label: 'Garis Regresi', data: x.map((v,i)=>({x:v, y:y_pred[i]})),
+                    borderColor: '#f59e0b', borderWidth: 2, fill: false, pointRadius: 0
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, scales: { x: { title: {display:true, text:'Konsentrasi (ppm)'} }, y: { title: {display:true, text:'Absorbansi (A)'} } } }
+        });
+        
+        calcSample(); // Auto update sample calc
+    }
+    setTimeout(calcRegression, 500);
+
+
+    // --- 4. Validation Logic ---
+    function calcSample() {
+        const y = parseFloat(document.getElementById('vsamp-y').value) || 0;
+        const fp = parseFloat(document.getElementById('vsamp-fp').value) || 1;
+        const x_read = (y - G_INT) / G_SLOPE;
+        const x_final = x_read * fp;
+        document.getElementById('vsamp-res').innerText = x_final.toFixed(4) + " ppm";
+    }
+
+    function calcPrecision() {
+        const inputs = document.querySelectorAll('.val-p');
+        let vals = [];
+        inputs.forEach(inp => { let v=parseFloat(inp.value); if(!isNaN(v)) vals.push(v); });
+        
+        if(vals.length < 3) return;
+        
+        let sum = vals.reduce((a,b)=>a+b, 0);
+        let mean = sum / vals.length;
+        let variance = vals.reduce((a,b)=>a+Math.pow(b-mean,2), 0) / (vals.length-1);
+        let sd = Math.sqrt(variance);
+        let rsd = (sd/mean)*100;
+        
+        document.getElementById('vres-mean').innerText = mean.toFixed(4);
+        document.getElementById('vres-sd').innerText = sd.toFixed(5);
+        
+        const rsdEl = document.getElementById('vres-rsd');
+        const msgEl = document.getElementById('vres-rsd-msg');
+        rsdEl.innerText = rsd.toFixed(2) + " %";
+        
+        if(rsd <= 2.0) {
+            rsdEl.className = "text-4xl font-black text-emerald-400 font-mono";
+            msgEl.innerHTML = '<span class="text-emerald-400"><i class="fa-solid fa-check-circle"></i> Presisi Sangat Baik (RSD &le; 2%)</span>';
+        } else {
+            rsdEl.className = "text-4xl font-black text-amber-400 font-mono";
+            msgEl.innerHTML = '<span class="text-amber-400"><i class="fa-solid fa-triangle-exclamation"></i> Presisi Kurang Baik</span>';
+        }
+    }
+
+    function calcRecovery() {
+        const c0 = parseFloat(document.getElementById('vrec-c0').value) || 0;
+        const cadd = parseFloat(document.getElementById('vrec-cadd').value) || 0;
+        const c1 = parseFloat(document.getElementById('vrec-c1').value) || 0;
+        
+        if(cadd > 0) {
+            const rec = ((c1 - c0) / cadd) * 100;
+            const resEl = document.getElementById('vrec-res');
+            const msgEl = document.getElementById('vrec-msg');
+            
+            resEl.innerText = rec.toFixed(1) + " %";
+            if(rec >= 85 && rec <= 115) {
+                resEl.className = "text-5xl font-black text-emerald-600 font-mono";
+                msgEl.innerHTML = '<span class="text-emerald-400 font-bold"><i class="fa-solid fa-check"></i> Memenuhi Syarat (85-115%)</span>';
+            } else {
+                resEl.className = "text-5xl font-black text-red-500 font-mono";
+                msgEl.innerHTML = '<span class="text-red-400 font-bold"><i class="fa-solid fa-xmark"></i> Tidak Memenuhi Syarat</span>';
+            }
+        }
+    }
+    setTimeout(()=>{calcPrecision(); calcRecovery();}, 600);
+
+
+    // ==========================================
+    // 5. THREE.JS 3D ENGINE (SHIMADZU AA-7000) v2
+    // ==========================================
+    let scene, camera, renderer, controls, aas, is3DInit = false;
+    const $3 = id => document.getElementById(id);
+    const S = { flame:false, asp:false, door:false, beam:true, labels:false, xray:false, ex:0, exC:0, op:1, opC:1, c:5, A:0, Ac:0, sel:null, step:-1, auto:false, autoT:0 };
+    const PARTS = {}, pick = [], shells = [], Y0 = 3.95;
+    let glass, doorG, flameG, flameL, beamG, matPost, partPts, photPts, hlBoxes = [], hovId = null, hovBox = null;
+    let goalP = null, goalT = null, monCv, monTex, hist = [], leds = {}, curve, PL = [], PLc = [0], partU = [], photU = [];
+    const ray = new THREE.Raycaster(), mv = new THREE.Vector2();
+    const V = (x, y, z) => new THREE.Vector3(x, y, z);
+
+    // ---------- helpers ----------
+    const M = (c, r, m) => new THREE.MeshStandardMaterial({ color:c, roughness:r, metalness:m || 0 });
+    function mesh(g, mt) { const m = new THREE.Mesh(g, mt); m.castShadow = m.receiveShadow = true; return m; }
+    const at = (m, x, y, z, ry) => { m.position.set(x, y, z); if (ry) m.rotation.y = ry; return m; };
+    const rot = (m, x, y, z) => { m.rotation.set(x || 0, y || 0, z || 0); return m; };
+    const cyl = (r, h, mt, r2, seg, open) => mesh(new THREE.CylinderGeometry(r, r2 === undefined ? r : r2, h, seg || 24, 1, !!open), mt);
+    const bx = (w, h, d, mt) => mesh(new THREE.BoxGeometry(w, h, d), mt);
+    function rb(w, h, d, r, mt) {
+        const s = new THREE.Shape(), x = -w / 2, y = -h / 2;
+        s.moveTo(x + r, y); s.lineTo(x + w - r, y); s.quadraticCurveTo(x + w, y, x + w, y + r); s.lineTo(x + w, y + h - r);
+        s.quadraticCurveTo(x + w, y + h, x + w - r, y + h); s.lineTo(x + r, y + h); s.quadraticCurveTo(x, y + h, x, y + h - r);
+        s.lineTo(x, y + r); s.quadraticCurveTo(x, y, x + r, y);
+        const g = new THREE.ExtrudeGeometry(s, { depth:d - .1, bevelEnabled:true, bevelThickness:.05, bevelSize:.05, bevelSegments:2, curveSegments:5 });
+        g.center(); return mesh(g, mt);
+    }
+    function seg(a, b, r, mt) {
+        const d = b.clone().sub(a), m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, d.length(), 10), mt);
+        m.position.copy(a).add(b).multiplyScalar(.5); m.quaternion.setFromUnitVectors(V(0, 1, 0), d.normalize()); return m;
+    }
+    const tube = (pts, r, mt) => mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map(p => V(...p))), 48, r, 8, false), mt);
+    function lbl(t, w, h, col) {
+        const c = document.createElement('canvas'); c.width = 512; c.height = Math.round(512 * h / w);
+        const x = c.getContext('2d'); x.font = 'bold ' + c.height * .62 + 'px Arial'; x.fillStyle = col; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(t, 256, c.height / 2);
+        const tx = new THREE.CanvasTexture(c); tx.encoding = THREE.sRGBEncoding;
+        const mt = new THREE.MeshBasicMaterial({ map:tx, transparent:true }); shells.push(mt);
+        return new THREE.Mesh(new THREE.PlaneGeometry(w, h), mt);
+    }
+    function P(id, name, grp, inner, ex, fn, pos, ...ms) {
+        const g = new THREE.Group(); ms.forEach(m => g.add(m)); g.position.set(...pos); aas.add(g);
+        g.traverse(o => { if (o.isMesh) { o.userData.pid = id; pick.push(o); if (o.material === glass) o.castShadow = false; } });
+        PARTS[id] = { id, name, grp, inner, shell:grp === 'Casing', ex:V(...ex), fn, g, base:g.position.clone() };
+        return g;
+    }
+    function lampGrp(ang, active) {
+        const g = new THREE.Group(); g.rotation.y = ang;
+        const brass = M(0xb98c3a, .35, 1), env = new THREE.MeshPhysicalMaterial({ color:0xdff3ff, roughness:.05, transparent:true, opacity:.35 });
+        g.add(at(rot(cyl(.21, .35, brass), 0, 0, Math.PI / 2), .675, 0, 0));
+        g.add(at(rot(cyl(.27, .45, env), 0, 0, Math.PI / 2), 1.075, 0, 0));
+        g.add(at(rot(cyl(.07, .25, M(0x9aa3ad, .3, 1)), 0, 0, Math.PI / 2), 1.05, 0, 0));
+        if (active) g.add(at(new THREE.Mesh(new THREE.SphereGeometry(.13, 12, 12), new THREE.MeshBasicMaterial({ color:0xff6a3d })), 1.05, 0, 0));
+        return g;
+    }
+
+    // ---------- laboratorium ----------
+    function buildLab() {
+        const add = (m, x, y, z) => { m.position.set(x, y, z); scene.add(m); return m; };
+        const wall = (w, h, c, x, y, z, ry, rx) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), M(c, .9)); m.receiveShadow = true; m.rotation.set(rx || 0, ry || 0, 0); return add(m, x, y, z); };
+        const cv = document.createElement('canvas'); cv.width = cv.height = 256; const g = cv.getContext('2d');
+        g.fillStyle = '#b9c0c5'; g.fillRect(0, 0, 256, 256); g.fillStyle = '#d6dadd'; g.fillRect(3, 3, 250, 250);
+        const tx = new THREE.CanvasTexture(cv); tx.wrapS = tx.wrapT = THREE.RepeatWrapping; tx.repeat.set(30, 20); tx.encoding = THREE.sRGBEncoding;
+        const fl = new THREE.Mesh(new THREE.PlaneGeometry(120, 80), new THREE.MeshStandardMaterial({ map:tx, roughness:.35, metalness:.05 })); fl.rotation.x = -Math.PI / 2; fl.receiveShadow = true; add(fl, 0, -8.5, 20);
+        wall(120, 40, 0xe9edf0, 0, 11.5, -8.5); wall(80, 40, 0xe2e7ea, -60, 11.5, 20, Math.PI / 2); wall(80, 40, 0xe2e7ea, 60, 11.5, 20, -Math.PI / 2); wall(120, 40, 0xe2e7ea, 0, 11.5, 55, Math.PI);
+        wall(120, 80, 0xf4f6f7, 0, 24, 20, 0, Math.PI / 2); wall(120, 4.5, 0xc4ced3, 0, 2.25, -8.47);
+        for (let x = -24; x <= 24; x += 24) for (let z = -2; z <= 20; z += 16) add(new THREE.Mesh(new THREE.BoxGeometry(9, .2, 3), new THREE.MeshBasicMaterial({ color:0xffffff })), x, 23.85, z);
+        const pl = new THREE.PointLight(0xffffff, .5, 80); pl.position.set(0, 20, 8); scene.add(pl);
+        // meja lab + kabinet
+        const top = mesh(new THREE.BoxGeometry(34, .5, 16.5), M(0x23282d, .3, .1)); add(top, 0, -.25, -.25);
+        add(mesh(new THREE.BoxGeometry(33.4, 8, 15.8), M(0xdde2e5, .6)), 0, -4.5, -.2);
+        for (let i = 0; i < 8; i++) { add(new THREE.Mesh(new THREE.BoxGeometry(.06, 7.6, .05), M(0x8a949b, .5)), -14.5 + i * 4.15, -4.5, 7.72); add(new THREE.Mesh(new THREE.BoxGeometry(.12, 1.2, .15), M(0xaab2bb, .3, 1)), -12.8 + i * 4.15, -2.5, 7.8); }
+        // jendela, rak reagen, tabung gas, papan nama
+        add(new THREE.Mesh(new THREE.BoxGeometry(9, 7.4, .3), M(0xe6e9ec, .5)), 12, 11, -8.35);
+        add(new THREE.Mesh(new THREE.PlaneGeometry(8.4, 6.8), new THREE.MeshBasicMaterial({ color:0xcfeaff })), 12, 11, -8.18);
+        add(new THREE.Mesh(new THREE.BoxGeometry(.15, 6.8, .1), M(0xe6e9ec, .5)), 12, 11, -8.1); add(new THREE.Mesh(new THREE.BoxGeometry(8.4, .15, .1), M(0xe6e9ec, .5)), 12, 11, -8.1);
+        const bc = [0x8a5a2b, 0x3b82f6, 0xcfe8f7, 0x8a5a2b, 0x22a06b, 0xcfe8f7];
+        [10, 13.5].forEach((y, r) => {
+            add(mesh(new THREE.BoxGeometry(9, .25, 1.6), M(0xb08968, .6)), -12, y, -7.6);
+            for (let i = 0; i < 8; i++) { const h = 1.2 + ((i * 7 + r * 3) % 5) * .15; const c = bc[(i + r) % 6];
+                add(mesh(new THREE.CylinderGeometry(.38, .38, h, 14), new THREE.MeshStandardMaterial({ color:c, roughness:.15, transparent:c === 0xcfe8f7, opacity:c === 0xcfe8f7 ? .5 : 1 })), -15.6 + i * 1.0, y + .12 + h / 2, -7.6);
+                add(mesh(new THREE.CylinderGeometry(.2, .2, .25, 10), M(0x1f2937, .5)), -15.6 + i * 1.0, y + .25 + h, -7.6); }
+        });
+        [[-12.5, 0xc0392b], [-14.2, 0x3b5b7a]].forEach(a => { add(cyl(.7, 9.5, M(a[1], .35, .3)), a[0], 4.75, -5.8); add(new THREE.Mesh(new THREE.SphereGeometry(.7, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2), M(a[1], .35, .3)), a[0], 9.5, -5.8); add(cyl(.18, .6, M(0xb98c3a, .3, 1)), a[0], 10.1, -5.8); });
+        const sg = lbl('LABORATORIUM KIMIA ANALITIK', 16, 1.3, '#0b3d91'); shells.pop(); add(sg, 0, 16, -8.4);
+        const fm = new THREE.MeshPhysicalMaterial({ color:0xcfe8f7, roughness:.05, transparent:true, opacity:.4 });
+        [[11.5, 3.2], [13, 4.2], [14.4, 3.1]].forEach(a => { const f = mesh(new THREE.SphereGeometry(.7, 20, 14), fm); f.scale.y = .8; add(f, a[0], .56, a[1]); add(cyl(.17, 1.2, fm), a[0], 1.6, a[1]); add(cyl(.22, .3, M(0xeeeeee, .6)), a[0], 2.3, a[1]); });
+    }
+
+    // ---------- init ----------
+    function init3D() {
+        const box = $3('webgl-wrapper'), w = box.clientWidth, h = box.clientHeight;
+        scene = new THREE.Scene(); scene.background = new THREE.Color(0xdfe5e8);
+        camera = new THREE.PerspectiveCamera(40, w / h, .1, 200); camera.position.set(1.5, 8.5, 30);
+        renderer = new THREE.WebGLRenderer({ antialias:true }); renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.setSize(w, h);
+        renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05; renderer.outputEncoding = THREE.sRGBEncoding;
+        box.prepend(renderer.domElement);
+        controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.target.set(0, 4.6, 0); controls.enableDamping = true; controls.minDistance = 3; controls.maxDistance = 45; controls.maxPolarAngle = Math.PI / 2 - .02;
+        controls.addEventListener('start', () => { goalP = goalT = null; S.auto = false; $3('t3b-auto').classList.remove('t3on'); });
+
+        // environment (reflections) + lights
+        const es = new THREE.Scene();
+        es.add(new THREE.Mesh(new THREE.BoxGeometry(40, 20, 40), new THREE.MeshBasicMaterial({ color:0xa4adb4, side:THREE.BackSide })));
+        [[0, 9.5, 0, 16, .2, 16, 3], [-15, 5, 0, .2, 8, 14, 1.6], [15, 5, 0, .2, 8, 14, 1.6], [0, 6, 15, 16, 8, .2, 1.2]].forEach(a => {
+            const m = new THREE.Mesh(new THREE.BoxGeometry(a[3], a[4], a[5]), new THREE.MeshBasicMaterial({ color:new THREE.Color(a[6], a[6], a[6]) })); m.position.set(a[0], a[1], a[2]); es.add(m);
+        });
+        scene.environment = new THREE.PMREMGenerator(renderer).fromScene(es, .03).texture;
+        scene.add(new THREE.HemisphereLight(0xffffff, 0xb9c2c9, .9));
+        const key = new THREE.DirectionalLight(0xffffff, 1.1); key.position.set(8, 18, 14); key.castShadow = true;
+        key.shadow.mapSize.set(2048, 2048); Object.assign(key.shadow.camera, { left:-16, right:16, top:16, bottom:-16, near:1, far:50 }); key.shadow.bias = -.0004; scene.add(key);
+        buildLab();
+        aas = new THREE.Group(); scene.add(aas);
+
+        // materials
+        const white = new THREE.MeshPhysicalMaterial({ color:0xe6e9ed, roughness:.38, metalness:.02, clearcoat:.5, clearcoatRoughness:.3, transparent:true });
+        const grey = new THREE.MeshPhysicalMaterial({ color:0x9aa3ad, roughness:.45, clearcoat:.3, transparent:true });
+        const dark = new THREE.MeshPhysicalMaterial({ color:0x2a2f36, roughness:.5, transparent:true });
+        shells.push(white, grey, dark);
+        glass = new THREE.MeshPhysicalMaterial({ color:0x9fd2ee, roughness:.05, transparent:true, opacity:.25, side:THREE.DoubleSide, depthWrite:false });
+        const steel = M(0xaab2bb, .3, 1), brass = M(0xb98c3a, .35, 1), blk = M(0x16191d, .65, .2), mirror = M(0xe8eef5, .04, 1);
+        const plast = new THREE.MeshStandardMaterial({ color:0xe3ebef, roughness:.35, transparent:true, opacity:.6 });
+        const glassS = new THREE.MeshPhysicalMaterial({ color:0xcfe8f7, roughness:.05, transparent:true, opacity:.3 });
+        const liq = new THREE.MeshStandardMaterial({ color:0x4aa3ff, roughness:.2, transparent:true, opacity:.75 });
+
+        // ---- Casing (replika Shimadzu AA-7000) ----
+        const gry = new THREE.MeshPhysicalMaterial({ color:0x50545a, roughness:.5, clearcoat:.3, transparent:true });
+        const plin = new THREE.MeshPhysicalMaterial({ color:0x33363a, roughness:.55, clearcoat:.2, transparent:true });
+        const hoodM = new THREE.MeshPhysicalMaterial({ color:0x1b1d20, roughness:.25, clearcoat:.9, clearcoatRoughness:.15, transparent:true });
+        const smoke = new THREE.MeshPhysicalMaterial({ color:0x08090a, roughness:.1, clearcoat:1, transparent:true });
+        shells.push(gry, plin, hoodM, smoke);
+        const ext = (pts, d, mt) => { const g = new THREE.ExtrudeGeometry(new THREE.Shape(pts.map(p => new THREE.Vector2(p[0], p[1]))), { depth:d, bevelEnabled:true, bevelThickness:.08, bevelSize:.08, bevelSegments:2 }); g.translate(0, 0, -d / 2); return mesh(g, mt); };
+        P('base', 'Plinth / Dasar Instrumen', 'Casing', false, [0, -1.5, 0], 'Rangka dasar abu-abu gelap penopang seluruh modul. Di bagian depan terdapat label Attenuator Position, knob Burner Select, stiker nomor seri, dan saklar daya. Di dalamnya terdapat jalur pipa drain, katup gas, dan elektronik catu daya.', [0, 0, 0],
+            at(rb(12.8, 1.2, 7.6, .2, plin), 0, .6, 0), at(lbl('ATTENUATOR POSITION', 2.6, .22, '#d0d3d6'), -2.6, .75, 3.84),
+            at(rot(cyl(.3, .22, blk), Math.PI / 2, 0, 0), 1.55, .66, 3.9), at(rot(cyl(.4, .05, steel), Math.PI / 2, 0, 0), 1.55, .66, 3.83), at(lbl('BURNER SELECT', 1.5, .2, '#d0d3d6'), 1.55, .2, 3.84),
+            at(bx(1.2, .32, .03, white), 3.3, .55, 3.82), at(bx(.6, .75, .12, blk), 5.5, .6, 3.84), at(new THREE.Mesh(new THREE.SphereGeometry(.07, 10, 10), new THREE.MeshBasicMaterial({ color:0x22ff66 })), 5.95, .75, 3.84));
+        P('casingL', 'Rumah Kiri (Kompartemen Lampu)', 'Casing', false, [-4, 0, 0], 'Menaungi turret lampu HCL dan lampu D2. Menjaga suhu lampu stabil dan mencegah cahaya luar masuk ke jalur optik.', [0, 0, 0],
+            at(rb(3.8, 5.8, 7.2, .5, white), -4.5, 4.1, 0));
+        P('casingR', 'Rumah Kanan (Modul Monokromator)', 'Casing', false, [4, 0, 0], 'Menaungi monokromator dan detektor PMT dalam ruang gelap agar sinyal tidak terganggu cahaya luar. Kolom kontrol dan panel samping kanan dipisahkan oleh sambungan vertikal.', [0, 0, 0],
+            at(rb(3.8, 5.8, 7.2, .5, white), 4.5, 4.1, 0), at(bx(.04, 5.6, .05, plin), 4.4, 4.1, 3.67));
+        const fz = 3.45;
+        P('roof', 'Penutup Atas, Panel Depan & Dinding Belakang', 'Casing', false, [0, 3, -3], 'Panel depan berjendela, penutup hitam bersudut (hood) di atas, serta dinding belakang yang menutup kompartemen atomisasi. Bagian atas menyalurkan gas buang nyala ke exhaust; dinding belakang melewatkan selang gas.', [0, 0, 0],
+            at(bx(5.4, .35, 7.2, white), 0, 6.85, 0), at(bx(5.4, 5.8, .4, white), 0, 4.1, -3.4), at(bx(5.2, 5.0, .05, plin), 0, 4.0, -3.15),
+            at(bx(5.4, 2.2, .3, white), 0, 5.8, fz), at(bx(5.4, 1.9, .3, white), 0, 2.15, fz), at(bx(.2, 1.6, .3, white), -2.6, 3.9, fz), at(bx(1.4, 1.6, .3, white), 2.0, 3.9, fz),
+            at(bx(3.9, .1, .14, gry), -.6, 4.74, 3.6), at(bx(3.9, .1, .14, gry), -.6, 3.06, 3.6), at(bx(.1, 1.7, .14, gry), -2.52, 3.9, 3.6), at(bx(.1, 1.7, .14, gry), 1.32, 3.9, 3.6),
+            at(ext([[-2.5, 0], [2.5, 0], [2.5, 1.35], [2.1, 1.85], [-2.1, 1.85], [-2.5, 1.35]], 1.0, gry), -.6, 1.0, 4.0),
+            at(ext([[-3.1, 0], [3.1, 0], [3.1, .8], [2.2, 2.9], [-2.2, 2.9], [-3.1, .8]], 6.2, hoodM), 0, 6.95, 0),
+            at(bx(2.6, .8, .04, smoke), -.5, 7.7, 3.18), at(lbl('\u26A0', .5, .5, '#b0b0b0'), .6, 7.7, 3.22), at(bx(2.8, .05, .05, blk), -.6, 8.9, 3.18));
+        const dr = P('door', 'Pintu Pengaman Kompartemen Atomisasi', 'Casing', false, [0, 0, 4], 'Jendela kaca penahan UV dan panas. Sistem interlock mematikan nyala bila pintu terbuka, melindungi operator dari radiasi dan flashback.', [-2.5, 0, 3.62],
+            at(bx(3.8, 1.6, .05, glass), 1.9, 3.9, 0), at(bx(3.9, .1, .1, gry), 1.9, 4.74, 0), at(bx(3.9, .1, .1, gry), 1.9, 3.06, 0), at(cyl(.06, .5, steel), 3.6, 3.9, .12));
+        doorG = dr;
+        const panel = P('panel', 'Panel Depan & Indikator LED', 'Pembacaan', false, [0, 0, 3], 'Tiga tombol bulat (hijau, kuning, merah) di kolom kontrol menunjukkan status: Ready (hijau), Flame ON (kuning), dan daya/stop (merah). Logo model AA-7000 Shimadzu ada di bawahnya.', [3.5, 0, 0],
+            at(lbl('AA-7000', 1.6, .42, '#222'), -.1, 4.2, 3.67), at(lbl('SHIMADZU', 1.2, .2, '#444'), -.05, 3.85, 3.67));
+        [[6.45, 0x22c55e, 'r'], [5.9, 0xf5b800, 'f'], [5.35, 0xef4444, 'p']].forEach(a => {
+            const l = rot(cyl(.2, .08, new THREE.MeshStandardMaterial({ color:a[1], emissive:a[1], emissiveIntensity:.1 })), Math.PI / 2, 0, 0);
+            l.position.set(0, a[0], 3.68); l.userData.pid = 'panel'; pick.push(l); panel.add(l); leds[a[2]] = l;
+        });
+
+        // ---- Sumber cahaya ----
+        const turr = [at(cyl(.55, 1.9, dark), 0, 0, 0), at(cyl(.7, .12, steel), 0, .95, 0), at(cyl(.7, .12, steel), 0, -.95, 0)];
+        for (let i = 1; i < 6; i++) { const l = lampGrp(i * Math.PI / 3, false); turr.push(l); }
+        P('turret', 'Turret Lampu (6 posisi)', 'Sumber Cahaya', true, [-2.5, 2, 0], 'Piringan putar berisi hingga 6 lampu. Turret otomatis memutar lampu unsur yang dipilih ke jalur optik dan memanaskan lampu berikutnya (pre-warm).', [-4.55, Y0, 0], ...turr);
+        P('hcl', 'Hollow Cathode Lamp (HCL)', 'Sumber Cahaya', true, [-1.5, 3, 1], 'Katoda berlapis logam analit (mis. Cu). Gas Ne/Ar terionisasi, menembak katoda (sputtering), atom logam tereksitasi memancarkan garis resonansi tajam (Cu 324,8 nm) yang diserap atom sampel.', [-4.55, Y0, 0], lampGrp(0, true));
+        P('d2', 'Lampu Deuterium (D2) - Koreksi Latar', 'Sumber Cahaya', true, [0, 2.5, -2.5], 'Sumber kontinu UV untuk koreksi absorpsi latar (background correction): serapan molekul/hamburan dari matriks dikurangkan dari sinyal total.', [-2.85, Y0, -2.3],
+            rot(cyl(.4, 1.2, steel), Math.PI / 2, 0, 0), at(rot(cyl(.42, .08, steel), Math.PI / 2, 0, 0), 0, 0, -.5), at(rot(cyl(.43, .08, steel), Math.PI / 2, 0, 0), 0, 0, -.3), at(new THREE.Mesh(new THREE.SphereGeometry(.14, 12, 12), new THREE.MeshBasicMaterial({ color:0xb388ff })), 0, 0, .55));
+        P('m1', 'Beam Combiner / Cermin M1', 'Sumber Cahaya', true, [0, 2, 1.5], 'Cermin semi-transparan yang menggabungkan berkas HCL dan D2 menjadi satu jalur optik menuju nyala.', [-2.85, Y0, 0],
+            at(bx(.06, 1.1, 1.1, mirror), 0, 0, 0, Math.PI / 4), at(cyl(.1, 1.4, steel), 0, -.9, 0));
+
+        // ---- Sistem atomisasi ----
+        P('sample', 'Wadah Sampel (Cup)', 'Sistem Atomisasi', false, [-2, 0, 2], 'Wadah larutan sampel/standar yang telah diasamkan. Ujung kapiler dicelupkan; tingkat konsentrasi larutan menentukan besar sinyal.', [-1.6, .45, 5],
+            cyl(.45, .9, glassS, undefined, 24, true), at(cyl(.4, .55, liq), 0, -.15, 0));
+        P('nebulizer', 'Nebulizer + Kapiler', 'Sistem Atomisasi', true, [-1, 0, 2.5], 'Aliran udara (oksidan) berkecepatan tinggi menciptakan tekanan rendah (efek Venturi) yang menghisap sampel lewat kapiler dan memecahnya menjadi aerosol halus (kabut).', [0, 0, 0],
+            at(rot(cyl(.32, 1.0, steel), Math.PI / 2, 0, 0), 0, 2, 2.4), at(rot(cyl(.4, .25, blk), Math.PI / 2, 0, 0), 0, 2, 2.95),
+            tube([[-1.6, .55, 5], [-1.6, 1.3, 4.6], [-.9, 1.27, 3.8], [-.3, 1.3, 3.0], [0, 1.9, 2.7]], .06, M(0xcfd6dc, .3, .2)));
+        P('chamber', 'Spray (Mixing) Chamber', 'Sistem Atomisasi', true, [0, -.5, 1.5], 'Impact bead memecah tetesan besar yang lalu terbuang ke drain; hanya aerosol halus (sekitar 5-10%) bercampur dengan gas bakar C2H2 dan udara lalu menuju burner.', [0, 0, 0],
+            at(rot(cyl(.75, 3.0, plast), Math.PI / 2, 0, 0), 0, 2, .6), at(new THREE.Mesh(new THREE.SphereGeometry(.22, 16, 16), glassS), 0, 2, 1.7), at(cyl(.38, .6, plast), 0, 2.95, 0), at(cyl(.14, .5, plast), 0, 1.0, -.6));
+        P('burner', 'Burner Head (slot 10 cm)', 'Sistem Atomisasi', true, [0, 1.5, 0], 'Kepala pembakar bercelah panjang 10 cm sehingga jalur cahaya melewati lapisan atom yang panjang (b besar, sinyal lebih sensitif). Terbuat dari titanium/baja tahan karat.', [0, 0, 0],
+            at(bx(4.2, .5, .55, steel), 0, 3.4, 0), at(bx(3.8, .04, .12, blk), 0, 3.66, 0), at(cyl(.2, .4, blk), 2.3, 3.4, 0, 0));
+        P('gas', 'Jalur Gas (C2H2 & Udara)', 'Sistem Atomisasi', true, [0, 0, -3], 'Gas bakar asetilena (C2H2) dan oksidan udara dialirkan melalui katup & flow sensor. Rasio bahan bakar/oksidan mengatur suhu (~2300 \u00b0C) dan jenis nyala.', [0, 0, 0],
+            tube([[.35, 2.6, -.9], [.35, 2.6, -2.6], [1.6, 1.6, -3.0], [1.6, 1.6, -3.9]], .07, M(0xd9382c, .5)), tube([[-.35, 2.6, -.9], [-.35, 2.6, -2.6], [-1.6, 1.6, -3.0], [-1.6, 1.6, -3.9]], .07, M(0x2563eb, .5)),
+            at(bx(.5, .5, .5, steel), .35, 2.6, -2.0), at(bx(.5, .5, .5, steel), -.35, 2.6, -2.0));
+        P('drain', 'Drain Vessel (Botol Pembuangan)', 'Sistem Atomisasi', false, [-3, 0, 2], 'Menampung larutan berlebih dari spray chamber lewat selang berbentuk U-trap (liquid seal) sehingga gas tidak bocor dan mencegah flashback.', [0, 0, 0],
+            tube([[0, 1.05, -.6], [0, .75, -.6], [-.5, .75, .2], [-5.5, .75, .2], [-7, .8, 2.0], [-7.4, 1.4, 2.8]], .08, M(0x6b7280, .6)),
+            at(cyl(.55, 1.1, glassS, undefined, 24, true), -7.4, .55, 2.9), at(cyl(.5, .5, liq), -7.4, .27, 2.9));
+        flameG = P('flame', 'Nyala Udara-Asetilena', 'Sistem Atomisasi', true, [0, 2.5, 0], 'Zona reaksi: desolvasi, volatilisasi, lalu atomisasi MX \u2192 M\u2070 + X. Inti biru-pucat menghasilkan atom bebas keadaan dasar yang menyerap cahaya HCL.', [0, 0, 0]);
+        const fm = (c, o) => new THREE.MeshBasicMaterial({ color:c, transparent:true, opacity:o, blending:THREE.AdditiveBlending, depthWrite:false });
+        [[1.9, .85, .17, 4.3, 0xffa24a, .3], [1.85, .5, .13, 4.05, 0x7cc4ff, .45], [1.8, .28, .1, 3.85, 0x3a8fff, .8]].forEach((a, i) => {
+            const s = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14), fm(a[4], a[5])); s.scale.set(a[0], a[1], a[2]); s.position.set(0, a[3], 0); s.userData.pid = 'flame'; s.userData.i = i; flameG.add(s); pick.push(s);
+        });
+        flameL = new THREE.PointLight(0xff9a40, 0, 9); flameL.position.set(0, 4.3, .6); scene.add(flameL); flameG.visible = false;
+        const hood = [at(cyl(1.0, .7, steel, 2.0, 32, true), 0, 5.3, 0), at(cyl(1.0, .9, steel), 0, 6.07, 0), at(cyl(1.0, 1.1, steel), 0, 7.05, 0), at(cyl(1.12, .12, steel), 0, 7.65, 0)];
+        hood[0].material = steel.clone(); hood[0].material.side = THREE.DoubleSide;
+        P('hood', 'Exhaust Hood & Saluran Buang', 'Sistem Atomisasi', true, [0, 3, 0], 'Menyedot gas hasil pembakaran (CO2, uap air, uap logam) keluar ruangan melalui ducting ke fume extractor demi keselamatan operator.', [0, 0, 0], ...hood);
+
+        // ---- Optik & detektor ----
+        P('m2', 'Cermin Pemfokus M2', 'Optik & Deteksi', true, [0, 2, 1.5], 'Cermin cekung yang mengumpulkan berkas setelah melewati nyala dan memfokuskannya ke celah masuk monokromator.', [3.0, Y0, 0],
+            at(bx(.08, 1.2, 1.2, mirror), 0, 0, 0, -Math.PI / 5), at(cyl(.1, 1.4, steel), 0, -.9, 0));
+        const gr = at(bx(.12, 1.2, 1.2, M(0xd4af37, .25, 1)), 1.25, 0, 0, -.5);
+        P('mono', 'Monokromator (Celah & Grating)', 'Optik & Deteksi', true, [1.5, 0, 2], 'Celah masuk membatasi cahaya, grating difraksi mendispersikan panjang gelombang, celah keluar hanya meloloskan garis analit (lebar celah sekitar 0,2-2 nm) dan menolak emisi nyala serta garis lain.', [3.75, Y0, 0],
+            at(bx(.08, 1.0, .35, blk), 0, 0, .3), at(bx(.08, 1.0, .35, blk), 0, 0, -.3), gr, at(bx(.35, .08, .08, blk), .55, .55, -1.3), at(bx(.35, .08, .08, blk), .55, .65, -1.3));
+        P('pmt', 'Photomultiplier Tube (PMT)', 'Optik & Deteksi', true, [0, 3, -2], 'Detektor super peka: foton melepas elektron dari fotokatoda, dikalikan berantai oleh dinode (hingga jutaan kali) menjadi arus terukur sebanding dengan intensitas cahaya (I).', [4.3, 5.3, -1.3],
+            cyl(.45, 1.3, glassS), at(cyl(.38, .08, M(0x14b8a6, .4, .3)), 0, -.62, 0), at(cyl(.5, .35, blk), 0, .8, 0), at(bx(.5, .06, .3, steel), 0, .1, 0), at(bx(.5, .06, .3, steel), 0, .3, 0));
+
+        // ---- Pembacaan ----
+        monCv = document.createElement('canvas'); monCv.width = 512; monCv.height = 320; monTex = new THREE.CanvasTexture(monCv); monTex.encoding = THREE.sRGBEncoding;
+        P('pc', 'Komputer & Software (WizAArd)', 'Pembacaan', false, [3, 0, 0], 'Mengubah arus PMT menjadi absorbansi A = -log(I/I0), menyimpan kurva kalibrasi, menghitung konsentrasi sampel, dan menampilkan sinyal real-time.', [9.0, 0, .8],
+            at(cyl(.8, .12, blk), 0, .06, 0), at(cyl(.12, 1.2, steel), 0, .7, 0), at(rb(3.8, 2.4, .2, .12, blk), 0, 2.3, 0),
+            at(new THREE.Mesh(new THREE.PlaneGeometry(3.6, 2.25), new THREE.MeshBasicMaterial({ map:monTex, toneMapped:false })), 0, 2.3, .11));
+        PARTS.pc.g.rotation.y = -.45;
+
+        // ---- Jalur cahaya & partikel ----
+        PL = [V(-3.25, Y0, 0), V(-2.85, Y0, 0), V(3.0, Y0, 0), V(3.75, Y0, 0), V(5.0, Y0, 0), V(4.3, 4.65, -1.3)];
+        for (let i = 1; i < PL.length; i++) PLc.push(PLc[i - 1] + PL[i].distanceTo(PL[i - 1]));
+        const bm = (c, o) => new THREE.MeshBasicMaterial({ color:c, transparent:true, opacity:o, blending:THREE.AdditiveBlending, depthWrite:false });
+        const mPre = bm(0x8fd3ff, .5); matPost = bm(0x8fd3ff, .5); beamG = new THREE.Group(); aas.add(beamG);
+        [[PL[0], PL[1], mPre], [PL[1], V(0, Y0, 0), mPre], [V(0, Y0, 0), PL[2], matPost], [PL[2], PL[3], matPost], [PL[3], PL[4], matPost], [PL[4], PL[5], matPost], [V(-2.85, Y0, -1.7), PL[1], bm(0xa78bfa, .35)]].forEach(a => beamG.add(seg(a[0], a[1], .06, a[2])));
+        const pp = new Float32Array(90 * 3); photPts = new THREE.Points(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(pp, 3)), new THREE.PointsMaterial({ size:.12, color:0xffffff, transparent:true, blending:THREE.AdditiveBlending, depthWrite:false }));
+        photPts.frustumCulled = false; beamG.add(photPts);
+        for (let i = 0; i < 90; i++) photU.push({ s:Math.random() * PLc[5], v:3 + Math.random() * 2, pass:false, alive:true });
+
+        curve = new THREE.CatmullRomCurve3([[-1.6, .6, 5], [-1.6, 1.3, 4.6], [-.9, 1.27, 3.8], [-.3, 1.3, 3.0], [0, 1.95, 2.6], [0, 2.0, 1.6], [0, 2.0, .6], [0, 2.6, .1], [0, 3.5, 0], [0, 4.2, 0], [0, 5.2, 0], [0, 6.0, 0], [0, 7.4, 0]].map(p => V(...p)));
+        const N = 320; partPts = new THREE.Points(new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(N * 3), 3)).setAttribute('color', new THREE.BufferAttribute(new Float32Array(N * 3), 3)),
+            new THREE.PointsMaterial({ size:.1, vertexColors:true, transparent:true, depthWrite:false }));
+        partPts.frustumCulled = false; aas.add(partPts); partPts.visible = false;
+        for (let i = 0; i < N; i++) partU.push({ t:Math.random(), v:.003 + Math.random() * .003, jx:Math.random() * 2 - 1, jy:Math.random() * 2 - 1, jz:Math.random() * 2 - 1 });
+
+        // ---- UI & events ----
+        buildUI3D(); t3Op(100); drawMon();
+        const cv = renderer.domElement; let dn = null;
+        cv.addEventListener('pointerdown', e => dn = [e.clientX, e.clientY]);
+        cv.addEventListener('pointerup', e => { if (dn && Math.hypot(e.clientX - dn[0], e.clientY - dn[1]) < 5) { const p = pickAt(e); if (p) selectPart(p.id); } dn = null; });
+        cv.addEventListener('pointermove', e => {
+            const p = pickAt(e), tip = $3('t3-tip'), r = box.getBoundingClientRect();
+            cv.style.cursor = p ? 'pointer' : 'grab';
+            if (p) { tip.style.display = 'block'; tip.textContent = p.name; tip.style.left = (e.clientX - r.left + 12) + 'px'; tip.style.top = (e.clientY - r.top + 12) + 'px'; } else tip.style.display = 'none';
+            if ((p ? p.id : null) !== hovId) { hovId = p ? p.id : null; if (hovBox) { scene.remove(hovBox); hovBox = null; } if (p) { hovBox = new THREE.BoxHelper(p.g, 0x38bdf8); scene.add(hovBox); } }
+        });
+        new ResizeObserver(() => { const w = box.clientWidth, h = box.clientHeight; camera.aspect = w / h; camera.updateProjectionMatrix(); renderer.setSize(w, h); }).observe(box);
+        showInfo(null); animate3D();
+    }
+
+    function pickAt(e) {
+        const r = renderer.domElement.getBoundingClientRect();
+        mv.set((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1); ray.setFromCamera(mv, camera);
+        for (const h of ray.intersectObjects(pick, false)) {
+            const p = PARTS[h.object.userData.pid];
+            if (!p.g.visible || (p.shell && S.opC < .3)) continue; return p;
+        }
+        return null;
+    }
+
+    // ---------- animation ----------
+    const clk3 = new THREE.Clock(); let tHud = 0, tMon = 0;
+    function pathAt(s) {
+        let i = 1; while (i < PLc.length - 1 && s > PLc[i]) i++;
+        return PL[i - 1].clone().lerp(PL[i], (s - PLc[i - 1]) / (PLc[i] - PLc[i - 1]));
+    }
+    function animate3D() {
+        requestAnimationFrame(animate3D);
+        if (!$3('page-3d').classList.contains('active')) return;
+        const dt = Math.min(clk3.getDelta(), .05), t = clk3.elapsedTime, k = 1 - Math.pow(.001, dt);
+        S.exC += (S.ex - S.exC) * k; S.opC += (S.op - S.opC) * k;
+        shells.forEach(m => { m.opacity = S.opC; m.depthWrite = S.opC > .95; }); glass.opacity = .06 + .2 * S.opC;
+        doorG.rotation.y += ((S.door ? -1.6 : 0) - doorG.rotation.y) * k;
+        Object.values(PARTS).forEach(p => p.g.position.copy(p.base).addScaledVector(p.ex, S.exC));
+        const exp = S.exC > .03, on = S.flame && S.asp;
+
+        // flame
+        flameG.visible = S.flame;
+        if (S.flame) {
+            flameG.children.forEach((s, i) => s.scale.y = [.85, .5, .28][i] * (1 + Math.sin(t * (14 + i * 9)) * .07 + Math.cos(t * (21 + i * 7)) * .05));
+            flameL.intensity = (on ? 1.8 : 1.2) + Math.random() * .25; flameL.position.x = PARTS.flame.g.position.x;
+        } else flameL.intensity = 0;
+        flameL.position.y = 4.3 + PARTS.flame.g.position.y;
+        leds.f.material.emissiveIntensity = S.flame ? 2 : .1; leds.r.material.emissiveIntensity = on ? 2 : .6;
+
+        // absorbance
+        const sl = typeof G_SLOPE !== 'undefined' ? G_SLOPE : .1235, ic = typeof G_INT !== 'undefined' ? G_INT : 0;
+        const At = on ? Math.min(2.8, Math.max(0, sl * S.c + ic)) : 0;
+        S.Ac += (At - S.Ac) * .04; S.A = Math.max(0, S.Ac + (on ? (Math.random() - .5) * .0012 : 0));
+        matPost.opacity = .5 * Math.pow(10, -S.Ac);
+        beamG.visible = S.beam && !exp;
+
+        // photons
+        const pa = photPts.geometry.attributes.position;
+        photU.forEach((u, i) => {
+            u.s += u.v * dt;
+            if (!u.pass && u.s > 3.25) { u.pass = true; u.alive = !on || Math.random() < Math.pow(10, -S.Ac); }
+            if (u.s > PLc[5]) { u.s = 0; u.pass = false; u.alive = true; }
+            const p = u.alive ? pathAt(u.s) : V(0, -50, 0); pa.setXYZ(i, p.x, p.y + (Math.random() - .5) * .04, p.z + (Math.random() - .5) * .04);
+        }); pa.needsUpdate = true;
+
+        // sample particles
+        partPts.visible = on && !exp;
+        if (partPts.visible) {
+            const a = partPts.geometry.attributes.position, c = partPts.geometry.attributes.color, col = new THREE.Color();
+            partPts.material.opacity = .35 + .65 * Math.min(S.c / 10, 1);
+            partU.forEach((u, i) => {
+                u.t = (u.t + u.v * dt * 60) % 1; const p = curve.getPointAt(u.t);
+                const f = Math.min(1, Math.max(0, (p.y - 3.6) / .4)) * Math.min(1, Math.max(0, (5.5 - p.y) / .5));
+                a.setXYZ(i, p.x + u.jx * (.08 + 1.8 * f), p.y + u.jy * .06, p.z + u.jz * .08 * (1 - .6 * f));
+                col.setHex(p.z > 2.6 && p.y < 2.3 ? 0x3b82f6 : p.y < 3.6 ? 0x67e8f9 : p.y < 4.1 ? 0xe0f2fe : p.y < 5.0 ? 0xffa726 : 0x94a3b8); c.setXYZ(i, col.r, col.g, col.b);
+            }); a.needsUpdate = true; c.needsUpdate = true;
+        }
+
+        // HUD & monitor
+        if ((tHud += dt) > .1) {
+            tHud = 0; $3('t3-hud-a').textContent = S.A.toFixed(4);
+            $3('t3-hud-s').textContent = !S.flame ? 'Api mati' : on ? `Aspirasi ${S.c.toFixed(1)} ppm | %T ${(100 * Math.pow(10, -S.A)).toFixed(1)}` : 'Api menyala (blanko)';
+            hist.push(S.A); if (hist.length > 120) hist.shift();
+        }
+        if ((tMon += dt) > .16) { tMon = 0; drawMon(); }
+
+        // auto step, camera, highlight, labels
+        if (S.auto && (S.autoT += dt) > 6) { S.autoT = 0; t3Step(1); }
+        if (goalP) { camera.position.lerp(goalP, .06); controls.target.lerp(goalT, .06); if (camera.position.distanceTo(goalP) < .05) goalP = goalT = null; }
+        hlBoxes.forEach(b => b.update()); if (hovBox) hovBox.update();
+        if (S.labels) Object.values(PARTS).forEach(p => {
+            const el = p.lbl; if (!el) return; const c = new THREE.Box3().setFromObject(p.g).getCenter(V(0, 0, 0)).project(camera), w = renderer.domElement;
+            el.style.display = c.z < 1 ? 'block' : 'none'; el.style.left = (c.x * .5 + .5) * w.clientWidth + 'px'; el.style.top = (-c.y * .5 + .5) * w.clientHeight + 'px';
+        });
+        controls.update(); renderer.render(scene, camera);
+    }
+
+    function drawMon() {
+        const c = monCv.getContext('2d');
+        c.fillStyle = '#0b1a2b'; c.fillRect(0, 0, 512, 320); c.fillStyle = '#16324f'; c.fillRect(0, 0, 512, 30);
+        c.fillStyle = '#cfe8ff'; c.font = 'bold 15px Arial'; c.fillText('AA-7000 | WizAArd  -  Cu 324.8 nm  -  Flame', 12, 20);
+        c.fillStyle = '#7dd3fc'; c.font = 'bold 58px monospace'; c.fillText(S.A.toFixed(4), 20, 92);
+        c.fillStyle = '#94a3b8'; c.font = '15px Arial'; c.fillText('Abs', 24, 114);
+        c.fillText('%T  ' + (100 * Math.pow(10, -S.A)).toFixed(1) + '   |   ' + (S.flame && S.asp ? S.c.toFixed(1) + ' ppm' : '-'), 150, 114);
+        c.fillStyle = S.flame ? '#fb923c' : '#475569'; c.fillText(S.flame ? 'FLAME ON' : 'FLAME OFF', 400, 60);
+        c.strokeStyle = '#1e3a5f'; c.lineWidth = 1; for (let i = 0; i <= 4; i++) { c.beginPath(); c.moveTo(20, 140 + i * 40); c.lineTo(492, 140 + i * 40); c.stroke(); }
+        const mx = Math.max(.5, ...hist) * 1.15; c.strokeStyle = '#22d3ee'; c.lineWidth = 2; c.beginPath();
+        hist.forEach((v, i) => { const x = 20 + i / 120 * 472, y = 300 - v / mx * 160; i ? c.lineTo(x, y) : c.moveTo(x, y); }); c.stroke();
+        monTex.needsUpdate = true;
+    }
+
+    // ---------- UI logic ----------
+    const STEPS = [
+        { t:'Nebulisasi', p:['sample', 'nebulizer'], d:V(.5, .5, 1), x:'Sampel cair dihisap naik lewat kapiler oleh efek Venturi dari aliran udara cepat di nebulizer, lalu dipecah menjadi aerosol halus (kabut).' },
+        { t:'Pencampuran', p:['chamber', 'gas', 'drain'], d:V(.8, .5, 1), x:'Di spray chamber, impact bead memecah tetesan besar yang terbuang ke drain. Hanya aerosol halus yang bercampur dengan C2H2 dan udara menuju burner.' },
+        { t:'Desolvasi', p:['burner', 'flame'], d:V(.4, .3, 1), x:'Di dasar nyala pelarut menguap cepat sehingga tersisa partikel garam padat mikroskopis (MX).' },
+        { t:'Atomisasi', p:['flame', 'burner'], d:V(.2, .2, 1), x:'Panas nyala (sekitar 2300 \u00b0C) menguapkan partikel lalu memecah ikatan: MX \u2192 M\u2070 + X. Atom bebas keadaan dasar (partikel oranye) memenuhi zona nyala sepanjang slot 10 cm.' },
+        { t:'Absorpsi atom', p:['hcl', 'turret', 'd2', 'm1', 'flame'], d:V(.2, .7, 1), x:'Cahaya garis resonansi dari HCL menembus nyala. Atom ground state menyerap foton sehingga berkas melemah (perhatikan berkas setelah nyala meredup). Beer-Lambert: A = -log(I/I0) = \u03b5bc. Lampu D2 mengoreksi serapan latar.' },
+        { t:'Deteksi & pembacaan', p:['m2', 'mono', 'pmt', 'pc'], d:V(.6, .6, 1), x:'Celah dan grating memilih hanya garis analit, PMT mengubah foton menjadi arus, lalu software menghitung A dan menampilkannya (lihat monitor). Nilai A dipakai pada kurva kalibrasi.' }
+    ];
+    function buildUI3D() {
+        const G = {}; Object.values(PARTS).forEach(p => (G[p.grp] = G[p.grp] || []).push(p));
+        $3('t3-list').innerHTML = Object.keys(G).map(k => `<div class="text-xs font-bold text-slate-400 uppercase mt-3 mb-1">${k}</div>` + G[k].map(p => `<button class="t3i" id="t3i-${p.id}" onclick="selectPart('${p.id}')">${p.name}</button>`).join('')).join('');
+        $3('t3-steps').innerHTML = STEPS.map((s, i) => `<button class="t3b" id="t3s-${i}" onclick="setStep(${i})">${i + 1}. ${s.t}</button>`).join('');
+        $3('t3-stxt').innerHTML = '<span class="text-slate-400">Pilih tahap 1-6 atau tekan Putar Otomatis untuk melihat alur dari sampel hingga pembacaan absorbansi.</span>';
+        Object.values(PARTS).forEach(p => { if (p.shell) return; const d = document.createElement('div'); d.className = 't3l'; d.textContent = p.name.split(' (')[0].split(' - ')[0]; d.onclick = () => selectPart(p.id); d.style.display = 'none'; $3('t3-lbls').appendChild(d); p.lbl = d; });
+    }
+    function hilite(ids, col) {
+        hlBoxes.forEach(b => scene.remove(b)); hlBoxes = ids.map(i => { const b = new THREE.BoxHelper(PARTS[i].g, col); scene.add(b); return b; });
+    }
+    function frame(ids, dir) {
+        const b = new THREE.Box3(); ids.forEach(i => b.expandByObject(PARTS[i].g));
+        const c = b.getCenter(V(0, 0, 0)), s = b.getSize(V(0, 0, 0));
+        goalT = c; goalP = c.clone().add((dir || V(.35, .35, 1)).normalize().multiplyScalar(Math.max(s.x, s.y, s.z) * 1.6 + 5));
+    }
+    function showInfo(id) {
+        const el = $3('t3-info'); if (!id) { el.innerHTML = 'Klik bagian mana pun pada model 3D, atau pilih dari daftar di bawah, untuk melihat fungsinya.'; return; }
+        const p = PARTS[id], st = STEPS.map((s, i) => s.p.includes(id) ? i + 1 : 0).filter(Boolean);
+        el.innerHTML = `<div class="text-xs font-bold text-brand-600 uppercase">${p.grp}</div><div class="text-base font-bold text-slate-800 mb-1">${p.name}</div><div>${p.fn}</div>` +
+            (st.length ? `<div class="mt-2 text-xs text-slate-500">Terlibat pada tahap mekanisme: <b>${st.join(', ')}</b></div>` : '');
+    }
+    function selectPart(id) {
+        const p = PARTS[id]; S.sel = id; hilite([id], 0xfacc15);
+        if (p.inner && S.op > .25) t3Op(15);
+        if (id === 'flame' && !S.flame) t3Toggle('flame');
+        document.querySelectorAll('.t3i').forEach(b => b.classList.remove('on')); const li = $3('t3i-' + id); if (li) { li.classList.add('on'); li.scrollIntoView({ block:'nearest' }); }
+        frame([id]); showInfo(id); t3Tab(0);
+    }
+    function t3Tab(n) { $3('t3-p0').style.display = n ? 'none' : 'block'; $3('t3-p1').style.display = n ? 'block' : 'none'; $3('t3tb0').classList.toggle('t3on', !n); $3('t3tb1').classList.toggle('t3on', !!n); }
+    function setStep(i) {
+        i = (i + STEPS.length) % STEPS.length; S.step = i; const st = STEPS[i]; t3Tab(1);
+        if (!S.flame) t3Toggle('flame'); if (!S.asp) t3Toggle('asp'); if (!S.beam) t3Toggle('beam'); t3Op(15);
+        hilite(st.p, 0x22d3ee); frame(st.p, st.d);
+        STEPS.forEach((s, j) => $3('t3s-' + j).classList.toggle('t3on', j === i));
+        $3('t3-stxt').innerHTML = `<div class="text-xs font-bold text-brand-600 uppercase">Tahap ${i + 1} dari ${STEPS.length}</div><div class="text-base font-bold text-slate-800 mb-1">${st.t}</div><div>${st.x}</div><div class="mt-2 text-xs text-slate-500">Bagian terkait: ${st.p.map(x => PARTS[x].name.split(' (')[0]).join(' &bull; ')}</div>`;
+    }
+    function t3Step(d) { setStep(S.step < 0 ? 0 : S.step + d); }
+    function t3Auto() { S.auto = !S.auto; S.autoT = 0; $3('t3b-auto').classList.toggle('t3on', S.auto); if (S.auto && S.step < 0) setStep(0); }
+    function t3Op(v) { S.op = v / 100; $3('t3-op').value = v; $3('t3-op-v').textContent = v >= 99 ? 'Opak 100%' : 'Opasitas ' + Math.round(v) + '%'; }
+    function t3Ex(v) { S.ex = v / 100; $3('t3-ex-v').textContent = v + '%'; }
+    function t3C(v) { S.c = +v; $3('t3-c-v').textContent = (+v).toFixed(1) + ' ppm \u2192 A mengikuti slope kalibrasi'; }
+    function t3Toggle(k) {
+        if (k === 'xray') { S.xray = !S.xray; t3Op(S.xray ? 10 : 100); }
+        else if (k === 'flame') { S.flame = !S.flame; if (!S.flame && S.asp) { S.asp = false; $3('t3b-asp').classList.remove('t3on'); } }
+        else if (k === 'asp') { S.asp = !S.asp; if (S.asp && !S.flame) { S.flame = true; $3('t3b-flame').classList.add('t3on'); $3('t3b-flame').textContent = 'Padamkan Api'; } }
+        else S[k] = !S[k];
+        if (k === 'labels') Object.values(PARTS).forEach(p => { if (p.lbl && !S.labels) p.lbl.style.display = 'none'; });
+        $3('t3b-' + k).classList.toggle('t3on', S[k]);
+        $3('t3b-flame').textContent = S.flame ? 'Padamkan Api' : 'Nyalakan Api'; $3('t3b-door').textContent = S.door ? 'Tutup Pintu' : 'Buka Pintu';
+        $3('t3b-asp').textContent = S.asp ? 'Hentikan Aspirasi' : 'Aspirasi Sampel';
+    }
+    function t3Cam(n) {
+        const c = { front:[[1.5, 8, 26], [.5, 3.8, 0]], top:[[0, 24, 8], [0, 3, 0]], side:[[22, 8, 6], [0, 3.8, 0]], optics:[[1, 10, 13], [.5, 4, 0]], flame:[[2.5, 5.5, 8], [0, 4.2, 0]] }[n];
+        goalP = V(...c[0]); goalT = V(...c[1]); if (n === 'optics' || n === 'flame') t3Op(15);
+    }
+    function t3Reset() {
+        S.auto = false; S.step = -1; S.sel = null; S.flame = S.asp = S.door = S.xray = S.labels = false; S.beam = true; t3Op(100); $3('t3-ex').value = 0; t3Ex(0);
+        hlBoxes.forEach(b => scene.remove(b)); hlBoxes = []; document.querySelectorAll('.t3b').forEach(b => b.classList.remove('t3on')); $3('t3b-beam').classList.add('t3on'); $3('t3tb0').classList.add('t3on');
+        Object.values(PARTS).forEach(p => { if (p.lbl) p.lbl.style.display = 'none'; }); document.querySelectorAll('.t3i').forEach(b => b.classList.remove('on'));
+        t3Toggle('beam'); t3Toggle('beam'); showInfo(null); t3Tab(0); t3Cam('front'); hist = [];
+    }
+    // tandai tombol berkas cahaya aktif di awal
+    document.addEventListener('DOMContentLoaded', () => { const b = $3('t3b-beam'); if (b) b.classList.add('t3on'); });
+
+</script>
+</body>
+</html>
