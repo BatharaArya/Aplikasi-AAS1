@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+
+<html lang="en"><head><meta charset="utf-8"><title>Shimadzu AA-7000 AAS Virtual Laboratory</title>
+
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+
+<style>
+
+:root{--bg:#0b1220;--p:#121b2e;--l:#25324d;--t:#e6edf7;--m:#8fa0bd;--c:#22d3ee;--v:#8b5cf6;--g:#34d399;--cu:#f97316;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+
+:root[data-theme=light],:root:not([data-theme=dark]){}
+
+*{box-sizing:inherit}html,body{height:100%;margin:0}body{background:var(--bg);color:var(--t);font:13px system-ui,-apple-system,Segoe UI,sans-serif;display:flex;flex-direction:column}
+
+header{display:flex;align-items:center;gap:6px;padding:8px 12px;border-bottom:1px solid var(--l);background:var(--p);flex-wrap:wrap}
+
+header b{color:var(--c);margin-right:10px;letter-spacing:.5px}
+
+.tab,button,select,input{font:inherit}
+
+.tab{background:none;border:0;color:var(--m);padding:6px 10px;border-radius:6px;cursor:pointer}.tab.on{background:var(--l);color:var(--t);box-shadow:inset 0 -2px var(--c)}
+
+main{flex:1;display:grid;grid-template-columns:1fr 400px;min-height:0}
+
+#vw{position:relative;min-height:340px;background:radial-gradient(circle at 50% 40%,#16233d,#080d18)}
+
+#cv{width:100%;height:100%;display:block}
+
+.ov{position:absolute;background:rgba(18,27,46,.82);border:1px solid var(--l);border-radius:8px;padding:6px 8px;display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+
+button{background:#1b2740;color:var(--t);border:1px solid var(--l);border-radius:6px;padding:5px 9px;cursor:pointer}button:hover{border-color:var(--c)}button.on{background:#0e5566;border-color:var(--c)}
+
+#side{overflow:auto;border-left:1px solid var(--l);background:var(--p);padding:12px}
+
+h3{margin:12px 0 6px;font-size:12px;letter-spacing:1px;color:var(--c);text-transform:uppercase}h3:first-child{margin-top:0}
+
+.row{display:flex;gap:6px;align-items:center;margin:4px 0;flex-wrap:wrap}.row label{color:var(--m);min-width:92px}
+
+input,select{background:#0d1526;color:var(--t);border:1px solid var(--l);border-radius:6px;padding:4px 6px;width:90px}input[type=range]{width:auto;flex:1;padding:0}
+
+table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid var(--l);padding:2px 3px;text-align:left}td input{width:100%}
+
+.box{background:#0d1526;border:1px solid var(--l);border-radius:8px;padding:8px;margin:6px 0}.err{color:#f87171;min-height:16px}.ok{color:var(--g)}.big{font-size:18px;color:var(--c)}
+
+canvas.ch{width:100%;height:auto;aspect-ratio:760/420;background:#0d1526;border:1px solid var(--l);border-radius:8px}
+
+.tr button{display:block;width:100%;text-align:left;margin:2px 0;background:none;border-color:transparent}.tr button.on{background:#0e5566}.tr i{color:var(--v);font-style:normal;font-size:11px}
+
+.lb{position:absolute;background:var(--v);color:#fff;border-radius:10px;padding:1px 6px;font-size:11px;pointer-events:none;transform:translate(-50%,-50%)}
+
+progress{width:100%}small{color:var(--m)}
+
+@media(max-width:900px){main{grid-template-columns:1fr;grid-template-rows:55vh auto}#side{border-left:0;border-top:1px solid var(--l)}}
+
+.lb.pl{background:#0b1220d9;border:1px solid var(--c);color:#e6edf7;transform:translate(-50%,-100%);white-space:nowrap;border-radius:6px;font-size:11px}.lb.pl.act{background:#0e7490;box-shadow:0 0 10px #22d3ee;z-index:2}#cv{touch-action:none;outline:none}#cv:focus-visible{outline:2px solid var(--c);outline-offset:-2px}#vw{-webkit-user-select:none;user-select:none}
+
+button:focus-visible,select:focus-visible,input:focus-visible,.tab:focus-visible{outline:2px solid var(--c);outline-offset:1px}
+
+@media(pointer:coarse){button,.tab{min-height:34px}}
+
+
+
+header{display:block;padding:0}
+
+.top{display:flex;align-items:center;gap:14px;padding:8px 12px;flex-wrap:wrap}
+
+.top b{margin-right:0}
+
+.mns{display:flex;gap:4px;flex-wrap:wrap}
+
+.mn{background:none;border:0;color:var(--m);font-weight:600;font-size:14px;padding:7px 16px;border-radius:8px}
+
+.mn:hover{color:var(--t)}.mn.on{background:var(--c);color:#06202a}
+
+#lang{margin-left:auto}
+
+.sub{display:flex;gap:4px;align-items:center;flex-wrap:wrap;padding:5px 12px;background:#0f182a;border-top:1px solid var(--l)}
+
+.tab[hidden]{display:none}
+
+
+
+:root{--bg:#eaf3ff;--p:#fff;--l:#d5e2f5;--t:#14213d;--m:#5b6b88;--c:#0a7ed1;--v:#7c3aed;--g:#059669;--cb:#38bdf8}
+
+body{--ac:#0ea5e9;background:linear-gradient(180deg,#e3f0ff,#f6faff);color:var(--t);font-size:13.5px}
+
+header{background:#fff;border-bottom:1px solid var(--l);box-shadow:0 2px 10px rgba(20,33,61,.06);position:relative;z-index:5}
+
+.top b{color:var(--t);font-size:14px;letter-spacing:.3px;display:flex;align-items:center}
+
+.top b:before{content:"";width:14px;height:14px;border-radius:5px;background:linear-gradient(135deg,#f97316,#0ea5e9);margin-right:9px}
+
+.mn{display:flex;align-items:center;gap:7px;color:var(--t);padding:8px 16px;border-radius:999px;transition:background .15s}
+
+.mn.on{background:var(--ac);color:#fff;box-shadow:0 3px 10px color-mix(in srgb,var(--ac) 40%,transparent)}
+
+.sub{background:#f4f9ff;border-top:1px solid var(--l);padding:7px 12px}
+
+.tab{padding:6px 14px;border-radius:999px;color:var(--m);font-weight:600}
+
+.tab:hover{background:#fff;color:var(--t)}.tab.on{background:var(--ac);color:#fff;box-shadow:none}
+
+button{background:#fff;color:var(--t);border:1px solid #c5d6ee;border-radius:8px;padding:6px 11px;font-weight:500;transition:background .12s,border-color .12s}
+
+button:hover{background:#f0f8ff;border-color:var(--ac)}button.on{background:var(--ac);border-color:var(--ac);color:#fff}
+
+input,select{background:#fff;color:var(--t);border:1px solid #c5d6ee;border-radius:8px;padding:5px 8px}
+
+th{color:var(--m);font-weight:600;font-size:12px}td,th{border-bottom:1px solid var(--l);padding:4px 5px}
+
+.box{background:#f5f9ff;border:1px solid var(--l);border-radius:10px;padding:10px}
+
+#vw{background:radial-gradient(circle at 50% 35%,#fff 0%,#dcecff 55%,#bcd7f5 100%)}
+
+.ov{background:rgba(255,255,255,.92);border:1px solid var(--l);box-shadow:0 4px 14px rgba(20,33,61,.1);backdrop-filter:blur(6px)}
+
+#side{background:var(--bg);border-left:1px solid var(--l)}
+
+</style></head><body>
+
+<header><div class="top"><b>SHIMADZU AA-7000 AAS VIRTUAL LAB</b>
+
+<nav class="mns"><button class="mn on" data-g="3d"><span class="ic">🧊</span>3D Model</button><button class="mn" data-g="calc"><span class="ic">🧮</span>Copper Analysis</button><button class="mn" data-g="guide"><span class="ic">📘</span>Atomization Process</button></nav>
+
+</div>
+
+<div class="sub"><button class="tab on" data-t="inst">3D Instrument</button><button class="tab" data-t="atom">Atomization Process</button><button class="tab" data-t="meas">Cu Measurement</button></div></header>
+
+<main><div id="vw"><canvas id="cv"></canvas>
+
+<div class="ov" style="top:8px;left:8px"><small>VIEW MODE</small><button id="m0" class="on">Complete AAS</button><button id="m1">Burner Chamber</button><button id="m2">Optical System</button></div>
+
+<div class="ov" id="ovCam" style="top:8px;right:8px"><small>CAMERA</small><button data-cam="front">Front</button><button data-cam="burner">Burner</button><button data-cam="lamp">Cu Lamp</button><button data-cam="reset">Reset</button></div>
+
+<div class="ov" id="ovBot" style="bottom:8px;left:8px;right:8px;justify-content:space-between">
+
+<div style="display:flex;gap:8px;align-items:center;flex:1"><small>Copper Wavelength:</small><b class="big" style="font-size:14px">324.7 nm (Cu Line)</b></div>
+
+<div style="display:flex;gap:4px;flex-wrap:wrap"><button id="bFlame" class="on">Ignite Flame</button><button id="bAspirate">Aspirate Cu Sample</button><button id="bBeam" class="on">Cu Light Path</button></div></div>
+
+</div><div id="side"></div></main>
+
+<script>
+
+(function(){
+
+var SRC=['https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js','https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js'];
+
+function fail(){document.getElementById('vw').innerHTML='<div style="padding:24px;text-align:center;color:#f87171"><h2>WebGL / Three.js Error</h2><p>Could not load 3D rendering engine.</p></div>'}
+
+function start(){var s=document.createElement('script');s.textContent=document.getElementById('app').textContent;document.body.appendChild(s)}
+
+function load(i){if(typeof THREE!=='undefined'){start();return}if(i>=SRC.length){fail();return}var s=document.createElement('script');s.src=SRC[i];s.onload=function(){load(i+1)};s.onerror=function(){load(i+1)};document.head.appendChild(s)}
+
+load(0)})();
+
+</script>
+
+<script type="text/plain" id="app">
+
+const $=s=>document.querySelector(s),T=THREE;
+
+
+
+let S={wl:324.7, flame:true, aspirating:false, conc:2.0, beam:true, mode:0};
+
+const Cu_Wavelength = 324.7;
+
+
+
+const cv=$('#cv'),R=new T.WebGLRenderer({canvas:cv,antialias:true,alpha:true});
+
+R.setClearColor(0x0b1220,1);R.shadowMap.enabled=true;
+
+const scene=new T.Scene(),cam=new T.PerspectiveCamera(45,1,.1,100);
+
+scene.add(new T.HemisphereLight(0xffffff,0x1a2233,.6));
+
+const dl=new T.DirectionalLight(0xffffff,.8);dl.position.set(5,10,7);scene.add(dl);
+
+
+
+/* --- AAS Models Components --- */
+
+const root=new T.Group();scene.add(root);
+
+const mats={
+
+  body: new T.MeshStandardMaterial({color:0xe2e8f0, roughness:.3, metalness:.1}),
+
+  dark: new T.MeshStandardMaterial({color:0x1e293b, roughness:.5}),
+
+  burner: new T.MeshStandardMaterial({color:0x94a3b8, metalness:.8, roughness:.2}),
+
+  flame: new T.MeshBasicMaterial({color:0x38bdf8, transparent:true, opacity:.75}),
+
+  flameCu: new T.MeshBasicMaterial({color:0x34d399, transparent:true, opacity:.85}),
+
+  hcl: new T.MeshStandardMaterial({color:0x38bdf8, transparent:true, opacity:.6, metalness:.3}),
+
+  beam: new T.MeshBasicMaterial({color:0x38bdf8, transparent:true, opacity:.5}),
+
+  atom: new T.MeshBasicMaterial({color:0xf97316})
+
+};
+
+
+
+// AAS Main Body
+
+const body=new T.Mesh(new T.BoxGeometry(4.2, 2.2, 2.2), mats.body);
+
+body.position.set(0, 1.1, 0); root.add(body);
+
+
+
+// Front Compartment / Burner Chamber cutout area
+
+const chamber=new T.Mesh(new T.BoxGeometry(1.4, 1.2, 1.2), mats.dark);
+
+chamber.position.set(0, 1.0, 0.55); root.add(chamber);
+
+
+
+// Burner Head & Nebulizer
+
+const burnerHead=new T.Mesh(new T.BoxGeometry(0.8, 0.1, 0.15), mats.burner);
+
+burnerHead.position.set(0, 0.7, 0.55); root.add(burnerHead);
+
+const burnerBase=new T.Mesh(new T.CylinderGeometry(0.12, 0.12, 0.5, 16), mats.burner);
+
+burnerBase.position.set(0, 0.4, 0.55); root.add(burnerBase);
+
+
+
+// Flame Mesh
+
+const flameGeo=new T.ConeGeometry(0.38, 0.7, 16);
+
+flameGeo.rotateX(Math.PI);
+
+const flameMesh=new T.Mesh(flameGeo, mats.flame);
+
+flameMesh.position.set(0, 1.1, 0.55); root.add(flameMesh);
+
+
+
+// Hollow Cathode Lamp (Cu HCL) Turret
+
+const turret=new T.Mesh(new T.CylinderGeometry(0.5, 0.5, 0.3, 16), mats.dark);
+
+turret.position.set(-1.4, 1.2, 0); root.add(turret);
+
+const hcl=new T.Mesh(new T.CylinderGeometry(0.08, 0.08, 0.6, 16), mats.hcl);
+
+hcl.rotation.z=Math.PI/2; hcl.position.set(-1.1, 1.2, 0); root.add(hcl);
+
+
+
+// Monochromator & Detector Block
+
+const detector=new T.Mesh(new T.BoxGeometry(0.6, 0.6, 0.6), mats.dark);
+
+detector.position.set(1.5, 1.2, 0); root.add(detector);
+
+
+
+// Light Beam (324.7 nm Line)
+
+const beamGeo=new T.CylinderGeometry(0.02, 0.02, 2.6, 16);
+
+beamGeo.rotateZ(Math.PI/2);
+
+const beamMesh=new T.Mesh(beamGeo, mats.beam);
+
+beamMesh.position.set(0.2, 1.2, 0.275); root.add(beamMesh);
+
+
+
+// Atom Particles Group inside Flame
+
+const atomGroup=new T.Group(); root.add(atomGroup);
+
+const atomParticles=[];
+
+for(let i=0; i<35; i++){
+
+  const p=new T.Mesh(new T.SphereGeometry(0.02, 8, 8), mats.atom);
+
+  p.position.set((Math.random()-.5)*0.6, 0.8+Math.random()*0.5, 0.55+(Math.random()-.5)*0.1);
+
+  atomGroup.add(p);
+
+  atomParticles.push(p);
+
+}
+
+
+
+/* --- Camera Controls --- */
+
+let cs={th:.3, ph:1.2, r:6, tg:new T.Vector3(0,1,0)};
+
+const V={
+
+  front:[0, 1.2, 6, [0,1,0]],
+
+  burner:[0.2, 1.3, 2.5, [0,0.9,0.55]],
+
+  lamp:[-0.8, 1.3, 2.8, [-1.1,1.2,0]],
+
+  reset:[.3, 1.2, 6, [0,1,0]]
+
+};
+
+function goCam(k){const v=V[k]||V.reset; cs.th=v[0]; cs.ph=v[1]; cs.r=v[2]; cs.tg.set(...v[3])}
+
+document.querySelectorAll('[data-cam]').forEach(b=>b.onclick=()=>goCam(b.dataset.cam));
+
+
+
+/* --- Interactivity --- */
+
+$('#bFlame').onclick=()=>{S.flame=!S.flame; $('#bFlame').classList.toggle('on',S.flame)};
+
+$('#bAspirate').onclick=()=>{S.aspirating=!S.aspirating; $('#bAspirate').classList.toggle('on',S.aspirating)};
+
+$('#bBeam').onclick=()=>{S.beam=!S.beam; $('#bBeam').classList.toggle('on',S.beam)};
+
+
+
+$('#m0').onclick=()=>{S.mode=0; setMode()};
+
+$('#m1').onclick=()=>{S.mode=1; setMode()};
+
+$('#m2').onclick=()=>{S.mode=2; setMode()};
+
+
+
+function setMode(){
+
+  $('#m0').classList.toggle('on', S.mode===0);
+
+  $('#m1').classList.toggle('on', S.mode===1);
+
+  $('#m2').classList.toggle('on', S.mode===2);
+
+  if(S.mode===1) goCam('burner');
+
+  else if(S.mode===2) goCam('lamp');
+
+  else goCam('reset');
+
+}
+
+
+
+// Side Panel UI Rendering
+
+const side=$('#side');
+
+let currentTab='inst';
+
+document.querySelectorAll('.tab').forEach(t=>{
+
+  t.onclick=()=>{
+
+    currentTab=t.dataset.t;
+
+    document.querySelectorAll('.tab').forEach(b=>b.classList.remove('on'));
+
+    t.classList.add('on');
+
+    renderSide();
+
+  }
+
+});
+
+
+
+function renderSide(){
+
+  if(currentTab==='inst'){
+
+    side.innerHTML=`
+
+      <h3>Shimadzu AA-7000 Specifications</h3>
+
+      <div class="box">
+
+        <b>System:</b> Flame / Furnace Atomic Absorption Spectrophotometer<br>
+
+        <b>Light Source:</b> Hollow Cathode Lamp (Cu HCL tuned to 324.7 nm)<br>
+
+        <b>Atomizer:</b> Air-Acetylene Slot Burner Head<br>
+
+        <b>Optical System:</b> Double-beam Czerny-Turner Monochromator
+
+      </div>
+
+      <h3>Instrument Controls</h3>
+
+      <div class="box">
+
+        <label>Cu Solution Concentration (ppm):</label><br>
+
+        <input type="range" id="cuConc" min="0" max="5" step="0.1" value="${S.conc}">
+
+        <b id="concVal">${S.conc} ppm</b>
+
+      </div>
+
+    `;
+
+    $('#cuConc').oninput=(e)=>{
+
+      S.conc=parseFloat(e.target.value);
+
+      $('#concVal').textContent=S.conc+' ppm';
+
+    }
+
+  } else if(currentTab==='atom'){
+
+    side.innerHTML=`
+
+      <h3>Copper (Cu) Atomization Process</h3>
+
+      <div class="box">
+
+        <b>1. Nebulization:</b> Liquid Cu²⁺ sample is drawn via capillary into fine droplets aerosol.<br><br>
+
+        <b>2. Desolvation:</b> Flame heat evaporates solvent, leaving solid Cu salt micro-particles.<br><br>
+
+        <b>3. Volatilization & Vaporization:</b> Solid particles melt and evaporate into gaseous molecules.<br><br>
+
+        <b>4. Atomization:</b> Thermal energy dissociates Cu compounds into free Ground State Copper Atoms (Cu⁰).<br><br>
+
+        <b>5. Absorption:</b> Free Cu⁰ atoms absorb resonance light at <b>324.7 nm</b> emitted by the Hollow Cathode Lamp.
+
+      </div>
+
+    `;
+
+  } else if(currentTab==='meas'){
+
+    const abs = (S.flame && S.aspirating) ? (S.conc * 0.185).toFixed(3) : "0.000";
+
+    side.innerHTML=`
+
+      <h3>Atomic Absorption Measurement</h3>
+
+      <div class="box">
+
+        <b>Analytical Wavelength:</b> 324.7 nm<br>
+
+        <b>Measured Absorbance (A):</b> <span class="big" style="color:var(--cu)">${abs}</span><br>
+
+        <b>Beer-Lambert Law:</b> $A = \\epsilon \\cdot b \\cdot c$<br>
+
+        <small>*Absorbance is directly proportional to free ground state Cu atom density in the flame.</small>
+
+      </div>
+
+    `;
+
+  }
+
+}
+
+renderSide();
+
+
+
+/* --- Render Loop --- */
+
+function loop(){
+
+  requestAnimationFrame(loop);
+
+  
+
+  // Flame State & Color Shift with Copper aspirate
+
+  flameMesh.visible = S.flame;
+
+  if(S.flame){
+
+    flameMesh.material = S.aspirating ? mats.flameCu : mats.flame;
+
+    flameMesh.scale.set(1 + Math.sin(Date.now()*0.02)*0.05, 1 + Math.cos(Date.now()*0.015)*0.08, 1);
+
+  }
+
+  
+
+  // Beam Visibility
+
+  beamMesh.visible = S.beam;
+
+  
+
+  // Atom Particles Animation
+
+  atomGroup.visible = S.flame && S.aspirating;
+
+  if(atomGroup.visible){
+
+    atomParticles.forEach((p, idx)=>{
+
+      p.position.y += 0.015;
+
+      if(p.position.y > 1.4){
+
+        p.position.y = 0.8;
+
+        p.position.x = (Math.random()-.5)*0.6;
+
+      }
+
+    });
+
+  }
+
+
+
+  // Camera Matrix Update
+
+  cam.aspect = cv.parentElement.clientWidth / cv.parentElement.clientHeight;
+
+  cam.updateProjectionMatrix();
+
+  cam.position.set(
+
+    cs.tg.x + cs.r * Math.sin(cs.ph) * Math.sin(cs.th),
+
+    cs.tg.y + cs.r * Math.cos(cs.ph),
+
+    cs.tg.z + cs.r * Math.sin(cs.ph) * Math.cos(cs.th)
+
+  );
+
+  cam.lookAt(cs.tg);
+
+  
+
+  R.setSize(cv.parentElement.clientWidth, cv.parentElement.clientHeight, false);
+
+  R.render(scene, cam);
+
+}
+
+loop();
+
+</script>
+
+</body></html>
