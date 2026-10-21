@@ -39,4 +39,4 @@ def load_html(path: str, mtime: float) -> str:
 html = load_html(str(html_path), html_path.stat().st_mtime)
 
 # Tinggi tampilan (px). Tambah kalau panel kanan terpotong di layarmu.
-components.html(html, height=920, scrolling=True)
+components.html(html, height=1000, scrolling=True)
