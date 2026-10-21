@@ -30,7 +30,8 @@ AAS_HTML = THREE_LIBS + """
 <div id="wrap">
  <div id="c"><div id="hint">Putar: seret • Zoom: scroll • Klik komponen untuk penjelasan • 1 unit = 1 cm</div>
   <div id="tools"><label><input type="checkbox" id="rot"> Putar otomatis</label>
-  <label><input type="checkbox" id="trans" checked> Bodi transparan</label></div></div>
+  <label><input type="checkbox" id="trans" checked> Bodi transparan</label>
+  <label>💥 Uraikan <input type="range" id="exp" min="0" max="100" value="0" style="vertical-align:middle;width:90px"></label></div></div>
  <div id="panel"><div id="chips"></div><hr style="border-color:#334155"><div id="info">
  <h3>Klik komponen AAS</h3>Klik bagian 3D atau tombol di atas untuk menampilkan fungsi dan prinsip kerjanya.</div></div>
 </div>
@@ -116,7 +117,9 @@ function sel(k){
  (parts[k]||[]).forEach(m=>m.material.emissive.setHex(0x2563eb));
  document.querySelectorAll('.chip').forEach(c=>c.classList.toggle('on',c.dataset.k==k));
  info.innerHTML='<h3>'+INFO[k][0]+'</h3>'+INFO[k][1];
+ if(k!='body'&&parts[k]){goal.copy(parts[k][0].position);} else goal.set(0,15,0);
 }
+const goal=new THREE.Vector3(0,15,0);
 const ray=new THREE.Raycaster(), mouse=new THREE.Vector2(); let down=null;
 renderer.domElement.addEventListener('pointerdown',e=>down=[e.clientX,e.clientY]);
 renderer.domElement.addEventListener('pointerup',e=>{
@@ -129,8 +132,19 @@ renderer.domElement.addEventListener('pointerup',e=>{
 document.getElementById('rot').onchange=e=>controls.autoRotate=e.target.checked;
 document.getElementById('trans').onchange=e=>{body.visible=e.target.checked;};
 addEventListener('resize',()=>{camera.aspect=el.clientWidth/el.clientHeight;camera.updateProjectionMatrix();renderer.setSize(el.clientWidth,el.clientHeight);});
+// foton bergerak sepanjang jalur optik
+const ph=[];for(let i=0;i<9;i++){const p=new THREE.Mesh(new THREE.SphereGeometry(0.55,12,12),new THREE.MeshBasicMaterial({color:0xfef08a}));p.userData.o=i/9;scene.add(p);ph.push(p);}
+// uraikan komponen (exploded view)
+Object.values(parts).flat().forEach(m=>m.userData.p0=m.position.clone());
+const C0=new THREE.Vector3(0,14,0);
+document.getElementById('exp').oninput=e=>{const k=e.target.value/100*0.9;
+ Object.entries(parts).forEach(([key,arr])=>{if(key=='body'||key=='beam')return;arr.forEach(m=>{m.position.copy(m.userData.p0).add(m.userData.p0.clone().sub(C0).multiplyScalar(k));});});
+ beamVis(k);};
+function beamVis(k){(parts.beam||[]).forEach(m=>m.scale.y=1+k*1.4);}
 let t=0;(function loop(){requestAnimationFrame(loop);t+=0.05;
- fl.scale.set(1,1+0.12*Math.sin(t*4),1);controls.update();renderer.render(scene,camera);})();
+ fl.scale.set(1,1+0.12*Math.sin(t*4),1+0.08*Math.sin(t*5));fl.material.opacity=0.5+0.15*Math.sin(t*6);
+ ph.forEach(p=>{const u=(p.userData.o+t*0.05)%1;p.position.set(-15+u*33,14,0);p.scale.setScalar(u>0.55&&u<0.62?0.5:1);p.material.color.setHex(u>0.6?0xfb7185:0xfef08a);});
+ controls.target.lerp(goal,0.06);controls.update();renderer.render(scene,camera);})();
 </script>
 """
 
@@ -144,6 +158,9 @@ INTERF_HTML = THREE_LIBS + """
  .b{padding:7px 12px;margin:2px;border:1px solid #475569;background:#334155;color:#e2e8f0;border-radius:8px;cursor:pointer;font-size:13px}
  .b.on{background:#0ea5e9;border-color:#0ea5e9}
  #c{height:470px;position:relative}
+ #met{padding:6px 14px;background:#1e293b;font-size:13px;color:#cbd5e1}
+ #mb{height:12px;border-radius:6px;background:#334155;overflow:hidden;margin-top:4px}
+ #mf{height:100%;width:100%;transition:width .8s,background .8s}
  #cap{padding:10px 14px;background:#1e293b;font-size:14px;line-height:1.55;min-height:70px}
  #cap b{color:#38bdf8}
  #leg{position:absolute;left:8px;bottom:8px;font-size:12px;background:#0f172acc;padding:6px 8px;border-radius:6px}
@@ -154,6 +171,7 @@ INTERF_HTML = THREE_LIBS + """
  <span class="d" style="background:#3b82f6"></span>Ca²⁺ &nbsp;<span class="d" style="background:#ef4444"></span>PO₄³⁻ (O merah, P kuning)
  &nbsp;<span class="d" style="background:#22c55e"></span>Sr²⁺ &nbsp;<span class="d" style="background:#a855f7"></span>La³⁺
  &nbsp;<span class="d" style="background:#14b8a6"></span>EDTA &nbsp;(ukuran bola ∝ jari-jari ion, skala 1:1 relatif)</div></div>
+<div id="met">Sinyal absorbansi Ca relatif (ilustrasi): <b id="mv">100%</b><div id="mb"><div id="mf"></div></div></div>
 <div id="cap"></div>
 <script>
 const el=document.getElementById('c');
@@ -184,21 +202,21 @@ const FLAME=()=>{const g=new THREE.Group();const m=new THREE.Mesh(new THREE.Cone
 
 const S=[
  {n:'1. Ca saja',cap:'<b>Tanpa pengganggu.</b> Ca²⁺ dalam nyala mudah terdisosiasi menjadi atom bebas Ca⁰ yang menyerap 422,7 nm. Jumlah atom bebas maksimum sehingga absorbansi sesuai konsentrasi (kurva kalibrasi benar).',
-  cl:[[-8,3,0],[0,6,-4],[8,2,3],[-4,-4,5],[5,-3,-6],[0,0,6]].map(p=>({c:p,items:[{t:'Ca',p:[0,0,0]}],tag:'Ca²⁺'}))},
+  sig:100,cl:[[-8,3,0],[0,6,-4],[8,2,3],[-4,-4,5],[5,-3,-6],[0,0,6]].map(p=>({c:p,items:[{t:'Ca',p:[0,0,0]}],tag:'Ca²⁺'}))},
  {n:'2. Ca + fosfat (gangguan)',cap:'<b>Gangguan kimia.</b> PO₄³⁻ berikatan dengan Ca²⁺ membentuk <b>Ca₃(PO₄)₂</b> yang sangat stabil secara termal; pada suhu nyala udara–asetilena tidak terdisosiasi sempurna. Atom Ca⁰ yang terbentuk sedikit → absorbansi turun → hasil analisis terlalu rendah (galat negatif).',
-  cl:[{c:[-8,1,0],items:ring(['Ca','PO4','Ca','PO4','Ca'],3.4),tag:'Ca₃(PO₄)₂ (sulit atomisasi)',b:1},
+  sig:35,cl:[{c:[-8,1,0],items:ring(['Ca','PO4','Ca','PO4','Ca'],3.4),tag:'Ca₃(PO₄)₂ (sulit atomisasi)',b:1},
       {c:[8,3,-3],items:ring(['Ca','PO4','Ca','PO4','Ca'],3.4),tag:'Ca₃(PO₄)₂ (sulit atomisasi)',b:1}]},
  {n:'3. + Sr²⁺ / La³⁺ (releasing agent)',cap:'<b>Releasing agent.</b> Sr²⁺ dan La³⁺ (dibuat berlebih, mis. 0,1–1 % La atau Sr) berikatan dengan fosfat <b>lebih kuat</b> daripada Ca (membentuk Sr₃(PO₄)₂ dan LaPO₄ yang lebih stabil). PO₄³⁻ “ditangkap”, sehingga Ca²⁺ <b>terbebas</b> dan dapat teratomisasi → absorbansi pulih.',
-  cl:[{c:[-10,2,-2],items:ring(['Sr','PO4','Sr','PO4','Sr'],3.4),tag:'Sr₃(PO₄)₂',b:1},
+  sig:96,cl:[{c:[-10,2,-2],items:ring(['Sr','PO4','Sr','PO4','Sr'],3.4),tag:'Sr₃(PO₄)₂',b:1},
       {c:[10,1,-2],items:ring(['La','PO4'],1.9),tag:'LaPO₄',b:1},
       {c:[-3,7,5],items:[{t:'Ca',p:[0,0,0]}],tag:'Ca²⁺ bebas'},{c:[3,5,6],items:[{t:'Ca',p:[0,0,0]}],tag:'Ca²⁺ bebas'},
       {c:[0,-4,6],items:[{t:'Ca',p:[0,0,0]}],tag:'Ca²⁺ bebas'},{c:[-6,-5,3],items:[{t:'Ca',p:[0,0,0]}],tag:'Ca²⁺ bebas'}]},
  {n:'4. + EDTA (protecting agent)',cap:'<b>Protecting agent.</b> EDTA membentuk kompleks khelat stabil <b>Ca–EDTA</b> sehingga Ca terlindungi dari fosfat. Kompleks ini mudah terurai di nyala (ligan organik terbakar) sehingga Ca⁰ dibebaskan dan teratomisasi. Berbeda dengan Sr/La yang “merebut” fosfat, EDTA “membungkus” Ca.',
-  cl:[[-8,3,0],[0,6,-4],[8,2,3],[-3,-4,5]].map(p=>({c:p,items:[{t:'Ca',p:[0,0,0]},{t:'EDTA',p:[0,0,0]}],tag:'Ca–EDTA'})).concat(
+  sig:98,cl:[[-8,3,0],[0,6,-4],[8,2,3],[-3,-4,5]].map(p=>({c:p,items:[{t:'Ca',p:[0,0,0]},{t:'EDTA',p:[0,0,0]}],tag:'Ca–EDTA'})).concat(
       [[9,-5,-4],[-10,-3,-5],[4,8,-8]].map(p=>({c:p,items:[{t:'PO4',p:[0,0,0]}],tag:'PO₄³⁻ (tidak bereaksi)'})))}
 ];
 
-let world=null,groups=[];
+let world=null,groups=[],cur=0,timer=null;
 function build(i){
  if(world)scene.remove(world);world=new THREE.Group();groups=[];world.add(FLAME());
  S[i].cl.forEach((c,k)=>{const g=new THREE.Group();g.position.set(...c.c);g.userData.ph=k*1.3;g.userData.base=g.position.clone();
@@ -207,8 +225,13 @@ function build(i){
   const l=label(c.tag,'#e2e8f0',0.7);l.position.set(0,5,0);g.add(l);world.add(g);groups.push(g);});
  scene.add(world);document.getElementById('cap').innerHTML=S[i].cap;
  document.querySelectorAll('.b').forEach((b,j)=>b.classList.toggle('on',j==i));
+ const v=S[i].sig;document.getElementById('mv').textContent=v+'%';const f=document.getElementById('mf');
+ f.style.width=v+'%';f.style.background=v<60?'#ef4444':(v<90?'#f59e0b':'#22c55e');cur=i;
 }
 S.forEach((s,i)=>{const b=document.createElement('button');b.className='b';b.textContent=s.n;b.onclick=()=>build(i);document.getElementById('bar').appendChild(b);});
+const pb=document.createElement('button');pb.className='b';pb.textContent='▶️ Putar otomatis';
+pb.onclick=()=>{if(timer){clearInterval(timer);timer=null;pb.textContent='▶️ Putar otomatis';}else{pb.textContent='⏸️ Berhenti';timer=setInterval(()=>build((cur+1)%S.length),6000);}};
+document.getElementById('bar').appendChild(pb);
 build(0);
 addEventListener('resize',()=>{camera.aspect=el.clientWidth/el.clientHeight;camera.updateProjectionMatrix();renderer.setSize(el.clientWidth,el.clientHeight);});
 let t=0;(function loop(){requestAnimationFrame(loop);t+=0.03;
@@ -220,10 +243,25 @@ let t=0;(function loop(){requestAnimationFrame(loop);t+=0.03;
 # =====================================================================
 # UI STREAMLIT
 # =====================================================================
-st.title("🔬 Virtual Lab Spektrofotometer Serapan Atom (AAS) – Shimadzu AA-7000")
-st.caption("Model 3D interaktif • Kurva kalibrasi otomatis • Simulasi gangguan fosfat pada analisis Ca")
+st.markdown("""
+<style>
+ .stApp{background:radial-gradient(circle at 15% 0%,#12233f 0%,#0b1220 55%,#070b14 100%);}
+ .hero{padding:26px 30px;border-radius:20px;margin-bottom:14px;color:#fff;
+  background:linear-gradient(120deg,#0ea5e9 0%,#6366f1 55%,#a855f7 100%);box-shadow:0 10px 40px #0ea5e955;}
+ .hero h1{margin:0;font-size:2rem;line-height:1.2;color:#fff}
+ .hero p{margin:6px 0 0;opacity:.92;font-size:1.02rem}
+ .pill{display:inline-block;margin:10px 6px 0 0;padding:4px 12px;border-radius:20px;background:#ffffff26;font-size:.82rem;backdrop-filter:blur(4px)}
+ div[data-testid="stMetric"]{background:#ffffff0d;border:1px solid #ffffff1f;border-radius:14px;padding:12px 16px}
+ button[data-baseweb="tab"]{font-weight:600;font-size:1rem}
+ iframe{border-radius:16px;border:1px solid #ffffff1f}
+</style>
+<div class="hero"><h1>🔬 Virtual Lab AAS – Shimadzu AA-7000</h1>
+<p>Jelajahi instrumen secara 3D, bangun kurva kalibrasi, dan lihat bagaimana Sr²⁺, La³⁺, dan EDTA menyelamatkan analisis Ca.</p>
+<span class="pill">🧩 Model 3D interaktif</span><span class="pill">📈 Regresi + LOD/LOQ</span>
+<span class="pill">⚗️ Simulasi gangguan fosfat</span><span class="pill">🏆 Kuis</span></div>
+""", unsafe_allow_html=True)
 
-tab1, tab2, tab3 = st.tabs(["🧩 Model 3D AAS 7000", "📈 Kurva Kalibrasi & Hitung Sampel", "⚗️ Gangguan Ca: Sr²⁺, La³⁺, EDTA"])
+tab1, tab2, tab3, tab4 = st.tabs(["🧩 Model 3D AAS 7000", "📈 Kurva Kalibrasi & Sampel", "⚗️ Gangguan Ca: Sr²⁺, La³⁺, EDTA", "🏆 Kuis"])
 
 # ---------------------- TAB 1 ----------------------
 with tab1:
@@ -264,6 +302,12 @@ with tab2:
             st.success(f"*Persamaan regresi:* y = {m:.5f}x {sign} {abs(b):.5f}")
             k1, k2, k3 = st.columns(3)
             k1.metric("Slope (m)", f"{m:.5f}"); k2.metric("Koefisien korelasi (r)", f"{r:.5f}"); k3.metric("R²", f"{r2:.5f}")
+            n = len(x); dof = n - (1 if origin else 2)
+            if dof > 0 and m != 0:
+                sy = float(np.sqrt(ss_res / dof)); lod = 3.3 * sy / abs(m); loq = 10 * sy / abs(m); conc_k = 0.0044 / abs(m)
+                q1, q2, q3 = st.columns(3)
+                q1.metric(f"LOD ({unit})", f"{lod:.4f}", help="3,3 × Sy/x ÷ slope"); q2.metric(f"LOQ ({unit})", f"{loq:.4f}", help="10 × Sy/x ÷ slope")
+                q3.metric(f"Konsentrasi karakteristik ({unit})", f"{conc_k:.4f}", help="Konsentrasi yang memberi A = 0,0044 (1 % serapan)")
             if r2 < 0.995:
                 st.warning("R² < 0,995 – periksa deret standar (pengenceran, kontaminasi, atau titik pencilan).")
             xs = np.linspace(min(x.min(), 0), x.max() * 1.05, 50)
@@ -311,3 +355,34 @@ with tab3:
 Alternatif lain: memakai nyala *N₂O–asetilena* yang lebih panas (±2700 °C) sehingga Ca₃(PO₄)₂ ikut terdisosiasi,
 atau metode adisi standar / matrix matching.
 """)
+
+# ---------------------- TAB 4: KUIS ----------------------
+with tab4:
+    st.subheader("🏆 Uji Pemahaman Anda")
+    QZ = [
+        ("Garis resonansi Ca yang umum dipakai pada AAS adalah …", ["324,7 nm", "422,7 nm", "589,0 nm", "248,3 nm"], 1,
+         "Ca diukur pada 422,7 nm menggunakan lampu katoda berongga Ca."),
+        ("Fungsi utama lampu deuterium (D₂) pada AA-7000 adalah …", ["Sumber garis Ca", "Pembakar nyala", "Koreksi serapan latar", "Menguatkan sinyal"], 2,
+         "D₂ memberi spektrum kontinu untuk mengukur dan mengurangi serapan latar."),
+        ("Senyawa yang menyebabkan gangguan kimia pada analisis Ca adalah …", ["Natrium klorida", "Fosfat", "Nitrat", "Asetat"], 1,
+         "Fosfat membentuk Ca₃(PO₄)₂ yang tahan panas sehingga atom Ca bebas berkurang."),
+        ("Mengapa La³⁺ atau Sr²⁺ disebut releasing agent?", ["Mendinginkan nyala", "Mengikat fosfat sehingga Ca terlepas", "Mengubah panjang gelombang", "Menaikkan pH"], 1,
+         "Keduanya berikatan dengan fosfat lebih kuat daripada Ca, sehingga Ca bebas teratomisasi."),
+        ("EDTA berperan sebagai …", ["Protecting agent (membentuk kompleks Ca–EDTA)", "Sumber radiasi", "Bahan bakar", "Detektor"], 0,
+         "EDTA mengkhelat Ca sehingga terlindung dari fosfat; kompleks terurai di nyala."),
+        ("Dalam persamaan y = 0,05x + 0,002, absorbansi sampel 0,102 setara konsentrasi …", ["1,0", "2,0", "2,04", "5,1"], 1,
+         "x = (0,102 − 0,002) / 0,05 = 2,0."),
+        ("Detektor pada AAS umumnya adalah …", ["Termokopel", "Photomultiplier tube", "Sel konduktivitas", "Elektroda gelas"], 1,
+         "PMT mengubah foton menjadi sinyal listrik yang diperkuat."),
+    ]
+    with st.form("kuis"):
+        jawab = [st.radio(f"*{i+1}. {q}*", opts, index=None, key=f"q{i}") for i, (q, opts, _, _) in enumerate(QZ)]
+        kirim = st.form_submit_button("✅ Periksa jawaban", type="primary")
+    if kirim:
+        skor = sum(1 for (q, opts, k, _), a in zip(QZ, jawab) if a == opts[k])
+        st.metric("Skor Anda", f"{skor} / {len(QZ)}", f"{skor / len(QZ) * 100:.0f} %")
+        st.progress(skor / len(QZ))
+        for i, ((q, opts, k, why), a) in enumerate(zip(QZ, jawab)):
+            (st.success if a == opts[k] else st.error)(f"*{i+1}.* {'Benar' if a == opts[k] else 'Belum tepat'} – jawaban: *{opts[k]}*. {why}")
+        if skor >= 6:
+            st.balloons()
