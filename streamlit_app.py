@@ -4,7 +4,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 # Ganti nama file ini kalau nanti kamu mengunggah versi HTML yang baru.
-HTML_FILE = "AAS1.html"
+HTML_FILE = "Virtual_Lab_Shimadzu_AA7000.html"
 
 st.set_page_config(
     page_title="AAS AA-7000 Virtual Laboratory",
@@ -39,4 +39,4 @@ def load_html(path: str, mtime: float) -> str:
 html = load_html(str(html_path), html_path.stat().st_mtime)
 
 # Tinggi tampilan (px). Tambah kalau panel kanan terpotong di layarmu.
-components.html(html, height=1000, scrolling=True)
+components.html(html, height=920, scrolling=True)
