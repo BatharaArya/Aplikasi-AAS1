@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shimadzu AA-7000 Virtual Laboratory (University Edition)</title>
+    <!-- Three.js for 3D Graphics -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- Chart.js for Calibration Curve -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Tailwind CSS for Professional UI -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: 'Inter', 'Segoe UI', sans-serif; background-color: #0f172a; }
+        #webgl-container { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
+        
+        /* UI Panel Styling */
+        #ui-panel {
+            position: absolute; top: 0; right: 0; width: 450px; height: 100vh;
+            background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px);
+            box-shadow: -5px 0 25px rgba(0,0,0,0.2); z-index: 10;
+            display: flex; flex-direction: column; overflow-hidden;
+            border-left: 1px solid #e2e8f0;
+        }
+        
+        .header { background: linear-gradient(135deg, #0f172a, #1e293b); color: white; padding: 25px 20px; text-align: center; border-bottom: 4px solid #0ea5e9; }
+        .header h1 { margin: 0; font-size: 22px; font-weight: 800; letter-spacing: 1px; color: #f8fafc; }
+        .header p { margin: 5px 0 0 0; font-size: 13px; color: #94a3b8; }
+        .header .badge { display: inline-block; background: #0ea5e9; color: white; padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; margin-top: 10px; letter-spacing: 1px;}
+        
+        .tabs { display: flex; background: #f1f5f9; border-bottom: 1px solid #cbd5e1; }
+        .tab { flex: 1; text-align: center; padding: 14px 0; cursor: pointer; font-size: 13px; font-weight: 700; color: #64748b; transition: all 0.3s; border-bottom: 3px solid transparent; }
+        .tab:hover { background: #e2e8f0; color: #0f172a; }
+        .tab.active { color: #0ea5e9; border-bottom-color: #0ea5e9; background: white; }
+        
+        .scroll-area { flex: 1; overflow-y: auto; padding: 20px; }
+        .content { display: none; animation: fadeIn 0.3s ease; }
+        .content.active { display: block; }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* Box & Cards */
+        .card { background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; margin-bottom: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+        .card h3 { margin: 0 0 12px 0; font-size: 15px; color: #0f172a; display: flex; align-items: center; border-bottom: 2px solid #f1f5f9; padding-bottom: 8px;}
+        .card h3 i { margin-right: 8px; color: #0ea5e9; }
+        
+        /* Buttons */
+        .btn { width: 100%; padding: 12px; margin-bottom: 10px; border: none; border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 13px; color: white; transition: all 0.2s; display: flex; justify-content: center; align-items: center; gap: 8px;}
+        .btn:active { transform: scale(0.98); }
+        .btn-primary { background: #0ea5e9; box-shadow: 0 4px 6px rgba(14, 165, 233, 0.2); } .btn-primary:hover { background: #0284c7; }
+        .btn-success { background: #10b981; box-shadow: 0 4px 6px rgba(16, 185, 129, 0.2); } .btn-success:hover { background: #059669; }
+        .btn-dark { background: #334155; box-shadow: 0 4px 6px rgba(51, 65, 85, 0.2); } .btn-dark:hover { background: #1e293b; }
+        .btn-warning { background: #f59e0b; color: white; box-shadow: 0 4px 6px rgba(245, 158, 11, 0.2); } .btn-warning:hover { background: #d97706; }
+        .btn-outline { background: transparent; border: 2px solid #cbd5e1; color: #475569; box-shadow: none; } .btn-outline:hover { border-color: #94a3b8; background: #f8fafc; }
+        
+        /* Status Bar */
+        #status-overlay {
+            position: absolute; bottom: 20px; left: 20px; z-index: 10; display: flex; gap: 15px;
+        }
+        .status-box {
+            background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(5px); color: white;
+            padding: 12px 20px; border-radius: 8px; font-family: 'Courier New', Courier, monospace;
+            font-size: 13px; border-left: 4px solid #38bdf8; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+        
+        /* Table & Inputs */
+        table { width: 100%; border-collapse: separate; border-spacing: 0; margin-bottom: 15px; border-radius: 8px; overflow: hidden; border: 1px solid #cbd5e1; }
+        th, td { border-bottom: 1px solid #e2e8f0; padding: 8px; text-align: center; }
+        th { background: #f8fafc; color: #334155; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;}
+        tr:last-child td { border-bottom: none; }
+        input[type="number"] { width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; text-align: center; font-family: monospace; font-size: 14px; transition: border 0.2s;}
+        input[type="number"]:focus { outline: none; border-color: #0ea5e9; box-shadow: 0 0 0 2px rgba(14,165,233,0.2); }
+        
+        .result-box { text-align: center; padding: 15px; background: #ecfdf5; border-radius: 8px; border: 2px dashed #10b981; margin-top: 15px;}
+        .result-box .label { font-size: 12px; color: #047857; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; }
+        .result-box .value { font-size: 24px; font-weight: 900; color: #065f46; font-family: monospace; }
+        
+        /* Educational Tooltips */
+        .edu-info { background: #eff6ff; border-left: 4px solid #3b82f6; padding: 12px; border-radius: 0 8px 8px 0; font-size: 12px; color: #1e3a8a; line-height: 1.5; margin-bottom: 15px; }
+        .edu-info strong { color: #1d4ed8; }
+        
+        /* Viewport Controls */
+        .camera-controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
+        .cam-btn { background: #f1f5f9; border: 1px solid #cbd5e1; padding: 8px; border-radius: 6px; font-size: 11px; font-weight: bold; color: #475569; cursor: pointer; transition: 0.2s;}
+        .cam-btn:hover { background: #e2e8f0; color: #0f172a; }
+        .cam-btn.active { background: #0f172a; color: white; border-color: #0f172a; }
+    </style>
+</head>
+<body>
+
+    <!-- 3D Canvas -->
+    <div id="webgl-container"></div>
+    
+    <!-- Floating Status Bar -->
+    <div id="status-overlay">
+        <div class="status-box" id="status-system">SISTEM: STANDBY</div>
+        <div class="status-box" id="status-flame" style="border-left-color: #94a3b8;">API: PADAM</div>
+        <div class="status-box" id="status-abs" style="border-left-color: #10b981;">ABSORBANSI: 0.000 A</div>
+    </div>
+
+    <!-- UI Panel -->
+    <div id="ui-panel">
+        <div class="header">
+            <h1>SHIMADZU AA-7000</h1>
+            <p>Interactive Atomic Absorption Spectrophotometer</p>
+            <div class="badge">UNIVERSITY EDITION</div>
+        </div>
+        
+        <div class="tabs">
+            <div class="tab active" onclick="openTab('tab-operasi', this)">Operasi & Analisis</div>
+            <div class="tab" onclick="openTab('tab-teori', this)">Teori Optik</div>
+            <div class="tab" onclick="openTab('tab-kalibrasi', this)">Kurva Kalibrasi</div>
+        </div>
+        
+        <div class="scroll-area">
+            
+            <!-- TAB 1: OPERASI & ANALISIS -->
+            <div id="tab-operasi" class="content active">
+                
+                <div class="card">
+                    <h3>Sudut Pandang Kamera</h3>
+                    <div class="camera-controls">
+                        <button class="cam-btn active" onclick="setCamera('front', this)">Tampak Depan</button>
+                        <button class="cam-btn" onclick="setCamera('autosampler', this)">Autosampler</button>
+                        <button class="cam-btn" onclick="setCamera('burner', this)">Area Burner</button>
+                        <button class="cam-btn" onclick="setCamera('optics', this)">Sistem Optik</button>
+                        <button class="cam-btn" onclick="setCamera('detector', this)">Detektor</button>
+                        <button class="cam-btn" onclick="setCamera('top', this)">Tampak Atas</button>
+                    </div>
+                </div>
+
+                <div class="card" style="border: 2px solid #0ea5e9; background: #f0f9ff;">
+                    <h3 style="border-color: #bae6fd;">Fitur Pembelajaran Utama</h3>
+                    <p style="font-size: 12px; color: #334155; margin-bottom: 12px;">Aktifkan mode ini untuk melihat bagian dalam spektrofotometer. Bodi alat akan menjadi transparan sehingga jalur cahaya HCL, api, dan detektor terlihat jelas.</p>
+                    <button class="btn btn-warning" id="btnAnalisis" style="font-size: 14px; padding: 14px;">
+                        🔍 AKTIFKAN MODE ANALISIS (OPTIK)
+                    </button>
+                </div>
+
+                <div class="card">
+                    <h3>Kontrol Instrumen</h3>
+                    <button class="btn btn-dark" id="btnCover">Tutup / Buka Tudung Atas (Chimney)</button>
+                    
+                    <div style="display: flex; gap: 10px; margin-top: 15px;">
+                        <button class="btn btn-outline" id="btnFlame" style="flex: 1; border-color: #10b981; color: #10b981;">
+                            🔥 Nyalakan Api
+                        </button>
+                        <button class="btn btn-outline" id="btnAspirate" style="flex: 1; border-color: #3b82f6; color: #3b82f6;" disabled>
+                            💧 Aspirasi Sampel
+                        </button>
+                    </div>
+                    <p style="font-size: 11px; color: #94a3b8; text-align: center; margin-top: 8px;">Nyalakan api (Ignite) terlebih dahulu sebelum aspirasi sampel.</p>
+                </div>
+            </div>
+
+            <!-- TAB 2: TEORI OPTIK -->
+            <div id="tab-teori" class="content">
+                <div class="card">
+                    <h3>Hukum Beer-Lambert</h3>
+                    <div class="edu-info">
+                        <strong>A = &epsilon; &middot; b &middot; c</strong><br><br>
+                        <strong>A</strong> = Absorbansi (tidak bersatuan)<br>
+                        <strong>&epsilon;</strong> = Absorptivitas Molar (L&middot;mol⁻¹&middot;cm⁻¹)<br>
+                        <strong>b</strong> = Lebar celah api / panjang lintasan (cm)<br>
+                        <strong>c</strong> = Konsentrasi sampel (ppm / M)
+                    </div>
+                    <p style="font-size: 12px; color: #475569; text-align: justify;">
+                        Pada AAS, sumber cahaya <b>Hollow Cathode Lamp (HCL)</b> memancarkan sinar dengan panjang gelombang spesifik (misal 324.7 nm untuk Tembaga/Cu). Saat sampel diuapkan dalam nyala api, senyawa terurai menjadi <b>atom-atom bebas pada keadaan dasar</b>. Atom-atom ini akan menyerap energi cahaya dari HCL. Semakin banyak atom (konsentrasi tinggi), semakin banyak cahaya yang diserap, sehingga <b>intensitas cahaya yang sampai ke detektor berkurang</b> (Absorbansi naik).
+                    </p>
+                </div>
+
+                <div class="card">
+                    <h3>Proses Atomisasi (Flame)</h3>
+                    <ul style="font-size: 12px; color: #475569; padding-left: 20px; margin: 0; line-height: 1.6;">
+                        <li><b>Nebulisasi:</b> Sampel cair dihisap dan diubah menjadi kabut aerosol.</li>
+                        <li><b>Desolvasi:</b> Panas api menguapkan pelarut, meninggalkan partikel garam padat.</li>
+                        <li><b>Volatilisasi:</b> Garam padat melebur dan menguap menjadi molekul gas.</li>
+                        <li><b>Disosiasi:</b> Energi termal memecah ikatan molekul menjadi atom bebas yang siap menyerap cahaya.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- TAB 3: KURVA KALIBRASI -->
+            <div id="tab-kalibrasi" class="content">
+                <div class="card">
+                    <h3>Data Standar (Editable)</h3>
+                    <table id="dataTable">
+                        <thead><tr><th>Konsentrasi (X)</th><th>Absorbansi (Y)</th></tr></thead>
+                        <tbody>
+                            <tr><td><input type="number" class="valX" value="0.0"></td><td><input type="number" class="valY" value="0.000" step="0.001"></td></tr>
+                            <tr><td><input type="number" class="valX" value="1.0"></td><td><input type="number" class="valY" value="0.125" step="0.001"></td></tr>
+                            <tr><td><input type="number" class="valX" value="2.0"></td><td><input type="number" class="valY" value="0.252" step="0.001"></td></tr>
+                            <tr><td><input type="number" class="valX" value="3.0"></td><td><input type="number" class="valY" value="0.370" step="0.001"></td></tr>
+                            <tr><td><input type="number" class="valX" value="4.0"></td><td><input type="number" class="valY" value="0.495" step="0.001"></td></tr>
+                        </tbody>
+                    </table>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn btn-dark" onclick="addRow()" style="flex: 1; font-size: 12px;">+ Tambah</button>
+                        <button class="btn btn-primary" onclick="updateChart()" style="flex: 2; font-size: 12px;">🔄 Hitung Regresi & Update</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>Grafik Kurva Kalibrasi</h3>
+                    <div style="width: 100%; height: 200px;"><canvas id="kalibrasiChart"></canvas></div>
+                    <div class="edu-info" style="margin-top: 15px; border-left-color: #f59e0b; background: #fffbeb;">
+                        <div style="font-family: monospace; font-size: 14px; color: #b45309; text-align: center;">
+                            <strong style="color: #92400e;">Persamaan Garis:</strong><br>
+                            <span id="eq-text">Y = 0.0000X + 0.0000</span><br>
+                            <span id="r2-text">R&sup2; = 0.0000</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>Kalkulator Sampel</h3>
+                    <label style="font-size: 12px; font-weight: 700; color: #475569;">Masukkan Absorbansi Terukur (Y):</label>
+                    <input type="number" id="inputSampelY" step="0.001" placeholder="Misal: 0.350" style="margin: 8px 0 12px 0;">
+                    <button class="btn btn-success" onclick="calculateSample()">Hitung Konsentrasi (X)</button>
+                    
+                    <div class="result-box">
+                        <div class="label">Konsentrasi Cu Terukur</div>
+                        <div class="value" id="resultSampleX">0.000 ppm</div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- JAVASCRIPT LOGIC & THREE.JS 3D ENGINE      -->
+    <!-- ========================================== -->
+    <script>
+        // --- 1. UI Logic (Tabs & Buttons) ---
+        function openTab(tabId, element) {
+            document.querySelectorAll('.content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            element.classList.add('active');
+        }
+
+        // --- 2. Math & Chart.js Logic ---
+        let myChart = null;
+        let reg_a = 0, reg_b = 0; // Y = a + bX
+
+        function addRow() {
+            const tbody = document.querySelector("#dataTable tbody");
+            const tr = document.createElement("tr");
+            tr.innerHTML = `<td><input type="number" class="valX" value="0.0"></td><td><input type="number" class="valY" value="0.000" step="0.001"></td>`;
+            tbody.appendChild(tr);
+        }
+
+        function updateChart() {
+            const xInputs = document.querySelectorAll('.valX');
+            const yInputs = document.querySelectorAll('.valY');
+            let dataX = [], dataY = [];
+            
+            for(let i=0; i<xInputs.length; i++) {
+                let x = parseFloat(xInputs[i].value);
+                let y = parseFloat(yInputs[i].value);
+                if(!isNaN(x) && !isNaN(y)) { dataX.push(x); dataY.push(y); }
+            }
+
+            if(dataX.length < 2) { alert("Butuh minimal 2 titik data!"); return; }
+
+            // Linear Regression Math
+            let n = dataX.length;
+            let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+            for(let i=0; i<n; i++) {
+                sumX += dataX[i]; sumY += dataY[i];
+                sumXY += (dataX[i] * dataY[i]); sumX2 += (dataX[i] * dataX[i]);
+            }
+            
+            reg_b = ((n * sumXY) - (sumX * sumY)) / ((n * sumX2) - (sumX * sumX)); // Slope (b)
+            reg_a = (sumY - (reg_b * sumX)) / n; // Intercept (a)
+
+            let ssTot = 0, ssRes = 0, meanY = sumY / n;
+            for(let i=0; i<n; i++) {
+                let yPred = reg_a + (reg_b * dataX[i]);
+                ssTot += Math.pow(dataY[i] - meanY, 2);
+                ssRes += Math.pow(dataY[i] - yPred, 2);
+            }
+            let r2 = ssTot === 0 ? 1 : (1 - (ssRes / ssTot));
+
+            document.getElementById('eq-text').innerText = `Y = ${reg_b.toFixed(4)}X ${reg_a >= 0 ? '+' : '-'} ${Math.abs(reg_a).toFixed(4)}`;
+            document.getElementById('r2-text').innerText = `R² = ${r2.toFixed(4)}`;
+
+            const ctx = document.getElementById('kalibrasiChart').getContext('2d');
+            const trendline = dataX.map(x => reg_a + (reg_b * x));
+
+            if(myChart) myChart.destroy();
+            myChart = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: 'Data Standar', data: dataX.map((x,i) => ({x:x, y:dataY[i]})),
+                        backgroundColor: '#0ea5e9', pointRadius: 6, pointHoverRadius: 8
+                    }, {
+                        type: 'line', label: 'Regresi Linier', data: dataX.map((x,i) => ({x:x, y:trendline[i]})),
+                        borderColor: '#f59e0b', borderWidth: 2, fill: false, pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    scales: {
+                        x: { title: { display: true, text: 'Konsentrasi (ppm)' } },
+                        y: { title: { display: true, text: 'Absorbansi (A)' } }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        function calculateSample() {
+            let y = parseFloat(document.getElementById('inputSampelY').value);
+            if(isNaN(y)) { alert("Masukkan nilai absorbansi valid!"); return; }
+            let x = (y - reg_a) / reg_b;
+            document.getElementById('resultSampleX').innerText = x.toFixed(4) + " ppm";
+        }
+
+        // Initialize chart
+        setTimeout(updateChart, 500);
+
+        // --- 3. THREE.JS 3D SCENE SETUP ---
+        const container = document.getElementById('webgl-container');
+        const scene = new THREE.Scene();
+        // Soft studio lighting background
+        scene.background = new THREE.Color(0xdce5f0);
+        scene.fog = new THREE.FogExp2(0xdce5f0, 0.015);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(0, 8, 25);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.outputEncoding = THREE.sRGBEncoding;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        container.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.target.set(-2, 3, 0); // Center slightly to the left to include autosampler
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.maxPolarAngle = Math.PI / 2 + 0.1; // Don't let camera go below ground
+
+        // Lights
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+        
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(10, 20, 15);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 2048;
+        dirLight.shadow.mapSize.height = 2048;
+        scene.add(dirLight);
+
+        const fillLight = new THREE.DirectionalLight(0xaaccff, 0.4);
+        fillLight.position.set(-15, 10, -10);
+        scene.add(fillLight);
+
+        // Environment Ground
+        const ground = new THREE.Mesh(
+            new THREE.PlaneGeometry(100, 100),
+            new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.8, metalness: 0.2 })
+        );
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.y = -0.1;
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        // --- 4. MATERIAL DEFINITIONS ---
+        // We use variables so we can modify them in "Analisis Mode"
+        const matCasingWhite = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.3, transparent: true, opacity: 1, side: THREE.DoubleSide });
+        const matCasingGrey = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.4, transparent: true, opacity: 1 });
+        const matBaseDark = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.6, transparent: true, opacity: 1 });
+        const matChimneyBlack = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.8, transparent: true, opacity: 1 });
+        
+        const matMetalInside = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.4, metalness: 0.7 });
+        const matBurnerTitanium = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.5, metalness: 0.8 });
+        const matGlass = new THREE.MeshPhysicalMaterial({ color: 0xffffff, transmission: 0.9, opacity: 1, transparent: true, roughness: 0.1, ior: 1.5 });
+        const matTintedGlass = new THREE.MeshPhysicalMaterial({ color: 0x0f172a, transmission: 0.8, opacity: 0.7, transparent: true, roughness: 0.2 });
+
+        const aasGroup = new THREE.Group();
+        scene.add(aasGroup);
+
+        // --- 5. BUILDING SHIMADZU AA-7000 CORE UNIT ---
+        // Base Unit
+        const coreBase = new THREE.Mesh(new THREE.BoxGeometry(9, 1.2, 6.5), matBaseDark);
+        coreBase.position.set(0, 0.6, 0); coreBase.castShadow = true; coreBase.receiveShadow = true;
+        aasGroup.add(coreBase);
+        
+        // Front slant base
+        const slantGeo = new THREE.CylinderGeometry(2.5, 3, 1.2, 4);
+        const slant = new THREE.Mesh(slantGeo, matBaseDark);
+        slant.rotation.y = Math.PI / 4; slant.scale.set(1.5, 1, 1);
+        slant.position.set(0, 0.6, 3.2); slant.castShadow = true;
+        aasGroup.add(slant);
+
+        // Left & Right Main Body
+        const bodyLeft = new THREE.Mesh(new THREE.BoxGeometry(3, 4.5, 6.5), matCasingWhite);
+        bodyLeft.position.set(-3, 3.45, 0); bodyLeft.castShadow = true; aasGroup.add(bodyLeft);
+        
+        const bodyRight = new THREE.Mesh(new THREE.BoxGeometry(3, 4.5, 6.5), matCasingWhite);
+        bodyRight.position.set(3, 3.45, 0); bodyRight.castShadow = true; aasGroup.add(bodyRight);
+
+        // Top Bridge (Holding Chimney) & Back Wall
+        const bridge = new THREE.Mesh(new THREE.BoxGeometry(3, 1.5, 6.5), matCasingWhite);
+        bridge.position.set(0, 4.95, 0); bridge.castShadow = true; aasGroup.add(bridge);
+        
+        const backWall = new THREE.Mesh(new THREE.BoxGeometry(3, 4.5, 2), matCasingWhite);
+        backWall.position.set(0, 3.45, -2.25); aasGroup.add(backWall);
+
+        // Bottom Atomizer Deck
+        const deck = new THREE.Mesh(new THREE.BoxGeometry(3, 1, 4.5), matCasingGrey);
+        deck.position.set(0, 1.7, 1); aasGroup.add(deck);
+
+        // Branding (AA-7000 Canvas Texture)
+        const brandCanvas = document.createElement('canvas');
+        brandCanvas.width = 512; brandCanvas.height = 128;
+        const ctxB = brandCanvas.getContext('2d');
+        ctxB.fillStyle = '#f8fafc'; ctxB.fillRect(0,0,512,128);
+        ctxB.fillStyle = '#0f172a'; ctxB.font = 'bold 50px Arial'; ctxB.fillText('AA-7000', 30, 60);
+        ctxB.fillStyle = '#ef4444'; ctxB.font = 'bold 20px Arial'; ctxB.fillText('SHIMADZU', 30, 100);
+        const brandTex = new THREE.CanvasTexture(brandCanvas);
+        const brandPlane = new THREE.Mesh(new THREE.PlaneGeometry(2.5, 0.6), new THREE.MeshStandardMaterial({ map: brandTex }));
+        brandPlane.position.set(2.8, 4.5, 3.26); // Right body, top front
+        aasGroup.add(brandPlane);
+
+        // Buttons (Purge, Ignite, Extinguish)
+        [0x10b981, 0x94a3b8, 0xfca5a5].forEach((col, idx) => {
+            const btn = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.1, 32), new THREE.MeshStandardMaterial({color: col}));
+            btn.rotation.x = Math.PI / 2; btn.position.set(2.5, 3.5 - (idx * 0.7), 3.25); aasGroup.add(btn);
+        });
+
+        // The Chimney (Polygonal Black Shield)
+        const chimneyGroup = new THREE.Group();
+        aasGroup.add(chimneyGroup);
+        // Using extrude for exact Shimadzu shape
+        const shape = new THREE.Shape();
+        shape.moveTo(-1.5, 0); shape.lineTo(1.5, 0); shape.lineTo(2.2, 2.5);
+        shape.lineTo(1.0, 4.5); shape.lineTo(-1.0, 4.5); shape.lineTo(-2.2, 2.5); shape.lineTo(-1.5, 0);
+        const extrudeSet = { depth: 4, bevelEnabled: true, bevelThickness: 0.1, bevelSize: 0.1, bevelSegments: 3 };
+        const chimneyGeo = new THREE.ExtrudeGeometry(shape, extrudeSet);
+        const chimney = new THREE.Mesh(chimneyGeo, matChimneyBlack);
+        chimney.position.set(0, 5.7, -2); // center it
+        chimney.castShadow = true;
+        chimneyGroup.add(chimney);
+
+
+        // --- 6. BUILDING ASC-7000 AUTOSAMPLER (LEFT SIDE) ---
+        // As seen in the reference image (image_2.png)
+        const asGroup = new THREE.Group();
+        asGroup.position.set(-7, 0, 0);
+        aasGroup.add(asGroup);
+
+        // AS Base
+        const asBase = new THREE.Mesh(new THREE.BoxGeometry(5, 1.2, 5.5), matBaseDark);
+        asBase.position.set(0, 0.6, 0); asBase.castShadow = true; asGroup.add(asBase);
+        
+        // AS Body
+        const asBody = new THREE.Mesh(new THREE.BoxGeometry(4.5, 3, 5), matCasingGrey);
+        asBody.position.set(0, 2.7, -0.25); asBody.castShadow = true; asGroup.add(asBody);
+
+        // Carousel Deck
+        const carouselDeck = new THREE.Mesh(new THREE.CylinderGeometry(2, 2, 0.5, 32), matCasingWhite);
+        carouselDeck.position.set(0, 2.7, 2); asGroup.add(carouselDeck);
+
+        // Sample Vials (Little tubes in circle)
+        for(let i=0; i<16; i++) {
+            const angle = (i / 16) * Math.PI * 2;
+            const vial = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.4, 16), matGlass);
+            vial.position.set(Math.cos(angle)*1.5, 3.1, 2 + Math.sin(angle)*1.5);
+            asGroup.add(vial);
+        }
+
+        // Tinted Cover for Carousel
+        const asCover = new THREE.Mesh(new THREE.CylinderGeometry(2.1, 2.1, 2, 32, 1, true), matTintedGlass);
+        asCover.position.set(0, 4, 2); asGroup.add(asCover);
+        const asCoverTop = new THREE.Mesh(new THREE.CylinderGeometry(2.1, 2.1, 0.1, 32), matBaseDark);
+        asCoverTop.position.set(0, 5, 2); asGroup.add(asCoverTop);
+
+        // Tube from Autosampler to Core (Capillary)
+        const capCurve = new THREE.QuadraticBezierCurve3(
+            new THREE.Vector3(-7, 3.5, 2),   // AS probe
+            new THREE.Vector3(-4, 2.5, 3),   // control point
+            new THREE.Vector3(0, 2.5, 2.5)   // Burner nebulizer inlet
+        );
+        const capGeo = new THREE.TubeGeometry(capCurve, 20, 0.04, 8, false);
+        const capillary = new THREE.Mesh(capGeo, new THREE.MeshStandardMaterial({color: 0xffffff, transparent:true, opacity:0.8}));
+        aasGroup.add(capillary);
+
+
+        // --- 7. INTERNAL OPTICS SYSTEM (VISIBLE IN ANALISIS MODE) ---
+        const optGroup = new THREE.Group();
+        aasGroup.add(optGroup);
+
+        // Burner Chamber
+        const chamberBox = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.5, 2.2), matMetalInside);
+        chamberBox.position.set(0, 2.95, 1); optGroup.add(chamberBox);
+        
+        // Titanium Burner Head (10cm slot representation)
+        const burnerHead = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.3, 0.4), matBurnerTitanium);
+        burnerHead.position.set(0, 3.85, 1); optGroup.add(burnerHead);
+
+        // Hollow Cathode Lamp (HCL) - Left Side
+        const hclTurret = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 0.5, 32), matBaseDark);
+        hclTurret.rotation.x = Math.PI/2; hclTurret.position.set(-3, 4.5, 1); optGroup.add(hclTurret);
+        
+        const hclLamp = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 1.5, 16), new THREE.MeshPhysicalMaterial({color: 0x38bdf8, transmission: 0.5, roughness: 0.1}));
+        hclLamp.rotation.z = Math.PI/2; hclLamp.position.set(-2.2, 4.5, 1); optGroup.add(hclLamp);
+        const hclBase = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 0.2, 16), matBaseDark);
+        hclBase.rotation.z = Math.PI/2; hclBase.position.set(-2.9, 4.5, 1); optGroup.add(hclBase);
+
+        // Monochromator / Detector Block - Right Side
+        const detectorBlock = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.5, 1.5), matBaseDark);
+        detectorBlock.position.set(3, 4.5, 1); optGroup.add(detectorBlock);
+        
+        const lensIn = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.1, 32), matGlass);
+        lensIn.rotation.z = Math.PI/2; lensIn.position.set(2.2, 4.5, 1); optGroup.add(lensIn);
+
+
+        // --- 8. PARTICLE PHYSICS & EFFECTS (FLAME, PHOTONS, ATOMS) ---
+        // Light Beam (HCL to Detector)
+        const beamGeo = new THREE.CylinderGeometry(0.08, 0.08, 4.4, 16);
+        const matBeam = new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0, blending: THREE.AdditiveBlending });
+        const lightBeam = new THREE.Mesh(beamGeo, matBeam);
+        lightBeam.rotation.z = Math.PI/2; lightBeam.position.set(0, 4.5, 1);
+        optGroup.add(lightBeam);
+
+        // Flame (Air-Acetylene)
+        const flameGroup = new THREE.Group();
+        flameGroup.position.set(0, 4.0, 1);
+        flameGroup.visible = false;
+        aasGroup.add(flameGroup);
+        
+        // Inner blue cone
+        const flameInner = new THREE.Mesh(new THREE.ConeGeometry(0.3, 1.2, 16), new THREE.MeshBasicMaterial({color: 0x0ea5e9, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending}));
+        flameInner.position.y = 0.6; flameGroup.add(flameInner);
+        // Outer translucent cone
+        const flameOuter = new THREE.Mesh(new THREE.ConeGeometry(0.5, 2.0, 16), new THREE.MeshBasicMaterial({color: 0x38bdf8, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending}));
+        flameOuter.position.y = 1.0; flameGroup.add(flameOuter);
+
+        // Point light for flame
+        const flameLight = new THREE.PointLight(0x0ea5e9, 0, 5);
+        flameLight.position.set(0, 4.5, 1);
+        aasGroup.add(flameLight);
+
+        // Particles System (Sample -> Atoms)
+        const atomsGroup = new THREE.Group();
+        atomsGroup.visible = false;
+        aasGroup.add(atomsGroup);
+        
+        const atomGeo = new THREE.SphereGeometry(0.04, 8, 8);
+        const matLiquid = new THREE.MeshBasicMaterial({ color: 0x3b82f6 }); // Blue sample
+        const matSolid = new THREE.MeshBasicMaterial({ color: 0xffffff });  // White salt
+        const matFreeAtom = new THREE.MeshBasicMaterial({ color: 0xf97316 }); // Orange free atom
+        
+        const atoms = [];
+        for(let i=0; i<80; i++) {
+            const mesh = new THREE.Mesh(atomGeo, matLiquid);
+            // Path: From capillary -> up into burner -> out the chimney
+            mesh.userData = {
+                t: Math.random(), // Time along curve
+                speed: 0.002 + Math.random() * 0.002,
+                xOff: (Math.random()-0.5)*0.2,
+                zOff: (Math.random()-0.5)*0.1
+            };
+            atoms.push(mesh);
+            atomsGroup.add(mesh);
+        }
+
+        // Photons (Small moving dots along the beam)
+        const photonsGroup = new THREE.Group();
+        photonsGroup.visible = false;
+        aasGroup.add(photonsGroup);
+        const photons = [];
+        const photonGeo = new THREE.SphereGeometry(0.02, 4, 4);
+        const matPhoton = new THREE.MeshBasicMaterial({ color: 0xffffff });
+        for(let i=0; i<30; i++) {
+            const ph = new THREE.Mesh(photonGeo, matPhoton);
+            ph.userData = { x: -2.0 + Math.random()*4.0, speed: 0.05 + Math.random()*0.02 };
+            ph.position.set(ph.userData.x, 4.5 + (Math.random()-0.5)*0.1, 1 + (Math.random()-0.5)*0.1);
+            photons.push(ph);
+            photonsGroup.add(ph);
+        }
+
+
+        // --- 9. INTERACTION LOGIC ---
+        let state = {
+            isCoverOpen: false,
+            isAnalisis: false,
+            isFlameOn: false,
+            isAspirating: false,
+            absorbance: 0.000
+        };
+
+        const btnCover = document.getElementById('btnCover');
+        const btnAnalisis = document.getElementById('btnAnalisis');
+        const btnFlame = document.getElementById('btnFlame');
+        const btnAspirate = document.getElementById('btnAspirate');
+
+        // Camera presets
+        const camViews = {
+            front: { p: new THREE.Vector3(0, 8, 25), t: new THREE.Vector3(-2, 3, 0) },
+            autosampler: { p: new THREE.Vector3(-12, 6, 8), t: new THREE.Vector3(-7, 3, 0) },
+            burner: { p: new THREE.Vector3(0, 6, 8), t: new THREE.Vector3(0, 3.5, 1) },
+            optics: { p: new THREE.Vector3(-1, 5, 6), t: new THREE.Vector3(0, 4.5, 1) },
+            detector: { p: new THREE.Vector3(5, 5, 5), t: new THREE.Vector3(2.5, 4.5, 1) },
+            top: { p: new THREE.Vector3(0, 20, 5), t: new THREE.Vector3(0, 0, 0) }
+        };
+
+        window.setCamera = function(view, el) {
+            document.querySelectorAll('.cam-btn').forEach(b => b.classList.remove('active'));
+            if(el) el.classList.add('active');
+            const v = camViews[view];
+            // Simple animate camera
+            camera.position.lerp(v.p, 1); // Immediate for now to avoid complex tweening lib
+            camera.position.copy(v.p);
+            controls.target.copy(v.t);
+            controls.update();
+        };
+
+        btnCover.addEventListener('click', () => {
+            state.isCoverOpen = !state.isCoverOpen;
+            chimneyGroup.position.y = state.isCoverOpen ? 3.0 : 0;
+            // Update beam visibility
+            if(!state.isAnalisis) matBeam.opacity = (state.isCoverOpen && state.isFlameOn) ? 0.3 : 0;
+        });
+
+        btnAnalisis.addEventListener('click', () => {
+            state.isAnalisis = !state.isAnalisis;
+            
+            // Toggle Opacity for Casing
+            const op = state.isAnalisis ? 0.15 : 1;
+            matCasingWhite.opacity = op;
+            matCasingGrey.opacity = op;
+            matBaseDark.opacity = op;
+            matChimneyBlack.opacity = state.isAnalisis ? 0.1 : 1;
+            brandPlane.material.opacity = op;
+
+            // Activate Beam and Photons
+            matBeam.opacity = state.isAnalisis ? 0.4 : (state.isCoverOpen && state.isFlameOn ? 0.3 : 0);
+            photonsGroup.visible = state.isAnalisis;
+
+            if(state.isAnalisis) {
+                btnAnalisis.innerHTML = "👁️ MATIKAN MODE ANALISIS";
+                btnAnalisis.classList.replace('btn-warning', 'btn-dark');
+                setCamera('optics'); // Auto zoom to optics
+                document.querySelectorAll('.cam-btn').forEach(b => b.classList.remove('active'));
+            } else {
+                btnAnalisis.innerHTML = "🔍 AKTIFKAN MODE ANALISIS (OPTIK)";
+                btnAnalisis.classList.replace('btn-dark', 'btn-warning');
+                setCamera('front');
+            }
+        });
+
+        btnFlame.addEventListener('click', () => {
+            state.isFlameOn = !state.isFlameOn;
+            flameGroup.visible = state.isFlameOn;
+            flameLight.intensity = state.isFlameOn ? 1.5 : 0;
+            
+            if(state.isFlameOn) {
+                btnFlame.innerHTML = "⬛ Padamkan Api";
+                btnFlame.classList.replace('btn-outline', 'btn-dark');
+                btnAspirate.disabled = false;
+                document.getElementById('status-flame').innerText = "API: MENYALA";
+                document.getElementById('status-flame').style.borderLeftColor = "#f59e0b";
+                if(state.isAnalisis) matBeam.opacity = 0.5; // Brighter when flame is on
+            } else {
+                btnFlame.innerHTML = "🔥 Nyalakan Api";
+                btnFlame.classList.replace('btn-dark', 'btn-outline');
+                
+                // Stop aspiration if flame is off
+                if(state.isAspirating) btnAspirate.click();
+                btnAspirate.disabled = true;
+                document.getElementById('status-flame').innerText = "API: PADAM";
+                document.getElementById('status-flame').style.borderLeftColor = "#94a3b8";
+            }
+        });
+
+        btnAspirate.addEventListener('click', () => {
+            if(!state.isFlameOn) return;
+            state.isAspirating = !state.isAspirating;
+            atomsGroup.visible = state.isAspirating;
+
+            if(state.isAspirating) {
+                btnAspirate.innerHTML = "🛑 Hentikan Aspirasi";
+                btnAspirate.classList.replace('btn-outline', 'btn-primary');
+                document.getElementById('status-system').innerText = "SISTEM: MENGUKUR SAMPEL...";
+                document.getElementById('status-system').style.borderLeftColor = "#0ea5e9";
+                
+                // Simulate Absorbance reading (randomized slightly around 0.350)
+                state.absorbance = 0.345 + Math.random() * 0.010;
+                document.getElementById('status-abs').innerText = `ABSORBANSI: ${state.absorbance.toFixed(3)} A`;
+            } else {
+                btnAspirate.innerHTML = "💧 Aspirasi Sampel";
+                btnAspirate.classList.replace('btn-primary', 'btn-outline');
+                document.getElementById('status-system').innerText = "SISTEM: STANDBY";
+                document.getElementById('status-system').style.borderLeftColor = "#38bdf8";
+                
+                state.absorbance = 0.000;
+                document.getElementById('status-abs').innerText = "ABSORBANSI: 0.000 A";
+            }
+        });
+
+
+        // --- 10. ANIMATION LOOP ---
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const delta = clock.getDelta();
+            const time = clock.getElapsedTime();
+
+            // Flame Flicker
+            if(state.isFlameOn) {
+                flameInner.scale.set(1 + Math.sin(time*25)*0.03, 1 + Math.cos(time*30)*0.05, 1);
+                flameOuter.scale.set(1 + Math.sin(time*15)*0.05, 1 + Math.cos(time*20)*0.08, 1);
+                flameLight.intensity = 1.2 + Math.random()*0.3;
+            }
+
+            // Atomization Physics (Capillary -> Flame -> Exhaust)
+            if(state.isAspirating) {
+                atoms.forEach(p => {
+                    p.userData.t += p.userData.speed;
+                    if(p.userData.t > 1) p.userData.t = 0; // Reset
+
+                    // Phase 1: Inside Capillary (t: 0 to 0.4)
+                    if(p.userData.t < 0.4) {
+                        p.material = matLiquid; // Blue
+                        // Move along bezier curve
+                        const pt = capCurve.getPoint(p.userData.t / 0.4);
+                        p.position.copy(pt);
+                    } 
+                    // Phase 2: In Burner & Flame (t: 0.4 to 0.7)
+                    else if(p.userData.t < 0.7) {
+                        const localT = (p.userData.t - 0.4) / 0.3; // 0 to 1 inside flame
+                        
+                        // Desolvation -> Solid (White) -> Free Atom (Orange)
+                        if(localT < 0.2) p.material = matSolid;
+                        else p.material = matFreeAtom;
+
+                        // Rise up from burner
+                        p.position.set(
+                            p.userData.xOff * (1 + localT*2), // Spread out horizontally
+                            3.85 + (localT * 3.0),            // Move up
+                            1 + p.userData.zOff * (1 + localT*2)
+                        );
+                    }
+                    // Phase 3: Exhaust out Chimney (t: 0.7 to 1.0)
+                    else {
+                        p.material = matFreeAtom;
+                        const localT = (p.userData.t - 0.7) / 0.3;
+                        p.position.y = 6.85 + localT * 3; // Keep moving up
+                    }
+                });
+
+                // Simulate Absorbance on Beam (Flickering opacity due to absorption)
+                if(state.isAnalisis) {
+                    matBeam.opacity = 0.2 + Math.random() * 0.15; // Beam dims slightly
+                }
+                // Fluctuate Absorbance text slightly for realism
+                if(Math.random() > 0.8) {
+                    let reading = state.absorbance + (Math.random()-0.5)*0.002;
+                    document.getElementById('status-abs').innerText = `ABSORBANSI: ${reading.toFixed(3)} A`;
+                    
+                    // Auto-fill calculator with current reading if empty or changed
+                    document.getElementById('inputSampelY').value = reading.toFixed(3);
+                }
+            } else {
+                if(state.isAnalisis) matBeam.opacity = 0.5; // Steady beam
+            }
+
+            // Photons travelling (HCL -> Detector)
+            if(state.isAnalisis) {
+                photons.forEach(ph => {
+                    ph.position.x += ph.userData.speed;
+                    // If aspirating, photons have a chance to disappear in the flame (absorbed)
+                    if(state.isAspirating && ph.position.x > -0.5 && ph.position.x < 0.5) {
+                        if(Math.random() < 0.3) { // 30% chance to be absorbed
+                            ph.position.x = -2.0; // Reset to lamp
+                        }
+                    }
+                    // Reset if reaches detector
+                    if(ph.position.x > 2.2) {
+                        ph.position.x = -2.0;
+                        ph.position.y = 4.5 + (Math.random()-0.5)*0.1;
+                        ph.position.z = 1 + (Math.random()-0.5)*0.1;
+                    }
+                });
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        
+        animate();
+
+        // Responsive Resizing
+        window.addEventListener('resize', () => {
+            const w = window.innerWidth;
+            camera.aspect = w / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(w, window.innerHeight);
+        });
+
+    </script>
+</body>
+</html>
