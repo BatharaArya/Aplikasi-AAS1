@@ -4,7 +4,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 # Ganti nama file ini kalau nanti kamu mengunggah versi HTML yang baru.
-HTML_FILE = "Virtual_Lab_Shimadzu_AA7000.html"
+HTML_FILE = "Shimadzu_AA7000_Web_App.html"
 
 st.set_page_config(
     page_title="AAS AA-7000 Virtual Laboratory",
